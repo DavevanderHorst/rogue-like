@@ -11,6 +11,7 @@ type Msg
     | OnDragBy Vec2
     | Zoom Float
     | GotViewport Viewport
+    | GotNewSize Int Int
     | ResetMap
     | MapIsClicked MapCoordinate
     | CardIsClicked Int

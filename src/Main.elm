@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Browser.Dom
+import Browser.Events exposing (onResize)
 import Constants exposing (mapSizeHeight, mapSizeWidth, startCenter, startSize, startZoom)
 import Draggable
 import Functions.Abilities exposing (handleNextAbility)
@@ -78,6 +79,7 @@ subscriptions baseModel =
         OkModel { drag } ->
             Sub.batch
                 [ Draggable.subscriptions DragMsg drag
+                , onResize (\w h -> GotNewSize w h)
                 ]
 
         ErrorModel _ ->
@@ -114,14 +116,10 @@ update msg baseModel =
                     ( OkModel { model | zoom = newZoom }, Cmd.none )
 
                 GotViewport viewPort ->
-                    let
-                        newSize =
-                            Size viewPort.viewport.width viewPort.viewport.height
+                    handleScreenSize viewPort.viewport.width viewPort.viewport.height model
 
-                        mapSize =
-                            Size (newSize.width * mapSizeWidth) (newSize.height * mapSizeHeight)
-                    in
-                    ( OkModel { model | mapSize = mapSize, windowSize = newSize }, Cmd.none )
+                GotNewSize width height ->
+                    handleScreenSize (toFloat width) (toFloat height) model
 
                 DragMsg dragMsg ->
                     let
@@ -181,6 +179,18 @@ update msg baseModel =
                 OpenDoor _ ->
                     --TODO
                     ( ErrorModel "to be implemented", Cmd.none )
+
+
+handleScreenSize : Float -> Float -> Model -> ( BaseModel, Cmd Msg )
+handleScreenSize width height model =
+    let
+        newSize =
+            Size width height
+
+        mapSize =
+            Size (newSize.width * mapSizeWidth) (newSize.height * mapSizeHeight)
+    in
+    ( OkModel { model | mapSize = mapSize, windowSize = newSize }, Cmd.none )
 
 
 dragConfig : Draggable.Config () Msg
