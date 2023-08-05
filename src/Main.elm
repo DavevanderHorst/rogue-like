@@ -6,16 +6,18 @@ import Browser.Events exposing (onResize)
 import Constants exposing (mapSizeHeight, mapSizeWidth, startCenter, startSize, startZoom)
 import Draggable
 import Functions.Abilities exposing (handleNextAbility)
+import Functions.Animations exposing (makeMoveAnimation)
 import Functions.Coordinates exposing (isSameMapCoordinate)
 import Functions.DictFunctions.RoomDict exposing (getStepsToMoveTowardsClickedCell)
 import Functions.HeroCards exposing (activateDoubleClickedCard)
 import Functions.Level exposing (moveHeroInLevel, resetMovementPathInTempRoomDictForLevel, setTempRoomsToNothingForLevel, updateLevelForAbility)
+import Functions.LevelState exposing (makeLevelStateReadyForMoveAnimation)
 import Functions.Movement exposing (makeMovementPathInTempRoomDictForLevel)
 import HeroCards exposing (emptyHeroCard, startHeroCards)
 import Levels.LevelOne exposing (heroStartMapCoordinate, levelOneResult)
 import Math.Vector2 as Vector2
 import Messages exposing (Msg(..))
-import Models.BaseModel exposing (BaseModel(..), Model, Size)
+import Models.BaseModel exposing (AnimationType(..), BaseModel(..), Model, Size)
 import Models.CardState exposing (CardAbility(..), CardState)
 import Models.LevelState exposing (GameMode(..), LevelState, MapCoordinate)
 import Task
@@ -43,6 +45,7 @@ init _ =
                 , drag = Draggable.init
                 , levelState = initLevelState
                 , cardState = initCardState
+                , animation = NoAnimation
                 }
             , Task.perform GotViewport Browser.Dom.getViewport
             )
@@ -143,7 +146,8 @@ update msg baseModel =
                                         Move movement ->
                                             if isSameMapCoordinate formerClickedCell clickedCoordinate then
                                                 -- same cell is clicked twice, so we move
-                                                handleTwiceClickedMapCoordinateForMovement model clickedCoordinate movement
+                                                -- handleTwiceClickedMapCoordinateForMovement model clickedCoordinate movement
+                                                handleMoveAnimation model
 
                                             else
                                                 -- other cell is clicked
@@ -372,3 +376,31 @@ addClickedCardNumberToModel number model =
 updateLevelState : Model -> (LevelState -> LevelState) -> Model
 updateLevelState model transform =
     { model | levelState = transform model.levelState }
+
+
+handleMoveAnimation : Model -> ( BaseModel, Cmd Msg )
+handleMoveAnimation model =
+    let
+        makeReadyResult =
+            makeLevelStateReadyForMoveAnimation model.levelState
+    in
+    case makeReadyResult of
+        Err err ->
+            ( ErrorModel err, Cmd.none )
+
+        Ok readyLevelState ->
+            case model.levelState.level.changedMapCoordinatesForTempRooms of
+                Nothing ->
+                    ( ErrorModel "No changed cells for animation", Cmd.none )
+
+                Just changedCoordinates ->
+                    let
+                        moveAnimationResult =
+                            makeMoveAnimation model.levelState.heroSpot changedCoordinates model.levelState.level.rooms
+                    in
+                    case moveAnimationResult of
+                        Err err ->
+                            ( ErrorModel err, Cmd.none )
+
+                        Ok moveAnimation ->
+                            ( OkModel { model | levelState = readyLevelState, animation = moveAnimation }, Cmd.none )

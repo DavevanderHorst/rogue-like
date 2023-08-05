@@ -7,14 +7,34 @@ import Functions.DictFunctions.GridCellDict
         , setHeroInGridCellDictUnSafe
         , setHeroToEmptyInGridCellDictUnSafe
         )
-import Functions.DictFunctions.RoomDict
-    exposing
-        ( getRoomFromRoomDict
-        , setGridCellsForRoomInRoomDictUnSafe
-        )
-import Functions.Room exposing (updateRoomsForCanBeMovedTo)
+import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
+import Functions.Room exposing (removeHeroFromRoomUnsafe, updateRoomsForCanBeMovedTo)
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (Level, MapCoordinate, Room, RoomCoordinate)
+
+
+removeHeroFromLevel : MapCoordinate -> Level -> Result String Level
+removeHeroFromLevel heroSpot level =
+    let
+        roomDict =
+            level.rooms
+
+        getHeroRoomResult =
+            getRoomFromRoomDict heroSpot.roomNumber roomDict
+    in
+    case getHeroRoomResult of
+        Err err ->
+            Err err
+
+        Ok heroRoom ->
+            let
+                roomWithoutHero =
+                    removeHeroFromRoomUnsafe heroSpot.roomCoordinate heroRoom
+
+                updatedRoomDict =
+                    addRoomToRoomDictUnSafe roomWithoutHero roomDict
+            in
+            Ok { level | rooms = updatedRoomDict }
 
 
 moveHeroInLevel : MapCoordinate -> MapCoordinate -> Level -> Result String Level

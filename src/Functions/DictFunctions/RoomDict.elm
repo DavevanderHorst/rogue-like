@@ -1,7 +1,7 @@
 module Functions.DictFunctions.RoomDict exposing (..)
 
 import Dict exposing (Dict)
-import Functions.DictFunctions.GridCellDict exposing (getStepsFromGridCellForClickedCell)
+import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, getStepsFromGridCellForClickedCell)
 import Models.LevelState exposing (GridCell, MapCoordinate, Room, RoomCoordinate)
 
 
@@ -17,6 +17,25 @@ getRoomFromRoomDict roomNumber roomDict =
 
         Just room ->
             Ok room
+
+
+getGridCellFromRoomDict : MapCoordinate -> Dict Int Room -> Result String GridCell
+getGridCellFromRoomDict spot roomDict =
+    let
+        getRoomResult =
+            getRoomFromRoomDict spot.roomNumber roomDict
+    in
+    case getRoomResult of
+        Err err ->
+            Err err
+
+        Ok room ->
+            getGridCellFromGridCellDict spot.roomCoordinate room.gridCells
+
+
+addRoomToRoomDictUnSafe : Room -> Dict Int Room -> Dict Int Room
+addRoomToRoomDictUnSafe room roomDict =
+    Dict.insert room.roomNumber room roomDict
 
 
 setGridCellsForRoomInRoomDictUnSafe : Int -> Dict String GridCell -> Dict Int Room -> Dict Int Room

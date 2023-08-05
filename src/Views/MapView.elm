@@ -1,5 +1,6 @@
 module Views.MapView exposing (..)
 
+import Basics as Math
 import Colors exposing (blackColorString, canBeClickedColorString, isClickedColorString, isPartOfMovePathColorString, whiteColorString)
 import Constants exposing (cellWidthString)
 import Dict
@@ -10,9 +11,12 @@ import Html.Events
 import Json.Decode as Decode exposing (Decoder)
 import Math.Vector2 as Vec2
 import Messages exposing (Msg(..))
-import Models.BaseModel exposing (Model, Size)
+import Models.BaseModel exposing (AnimationType(..), Model, Size)
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (CellState(..), FigureType(..), GameMode(..), GridCell, LevelState, MonsterType(..), Room)
+import Simple.Animation as Animation exposing (Animation)
+import Simple.Animation.Animated as Animated
+import Simple.Animation.Property as P
 import Svg exposing (Attribute, Svg)
 import Svg.Attributes as SvgAttr
 import Svg.Events
@@ -64,10 +68,45 @@ mapView model =
                 [ SvgAttr.transform (zooming ++ " " ++ panning)
                 , SvgAttr.fill "none"
                 ]
-                (renderLevel model.levelState)
+                (renderLevel model.levelState model.animation)
             ]
         , buttonsView model.levelState size.width
         ]
+
+
+handleAnimation : AnimationType -> Svg Msg
+handleAnimation animation =
+    case animation of
+        NoAnimation ->
+            Svg.g [] []
+
+        Walk startGridCell endGridCell ->
+            animatedG (hover startGridCell endGridCell) [] [ renderHeroGridCell startGridCell False ]
+
+
+
+-- Svg Animated Helpers
+
+
+hover : GridCell -> GridCell -> Animation
+hover start end =
+    Animation.steps
+        { startAt = [ P.x (toFloat start.startX), P.y (toFloat start.startY) ]
+        , options = [ Animation.easeInOutQuad ]
+        }
+        [ Animation.step 2000 [ P.x (toFloat end.startX), P.y (toFloat end.startY) ]
+        ]
+
+
+animatedG : Animation -> List (Svg.Attribute msg) -> List (Svg msg) -> Svg msg
+animatedG =
+    animatedSvg Svg.g
+
+
+animatedSvg =
+    Animated.svg
+        { class = SvgAttr.class
+        }
 
 
 calculateMapFondSize : Size -> String
@@ -80,8 +119,8 @@ calculateMapMarginSize windowSize =
     "10px"
 
 
-renderLevel : LevelState -> List (Svg Msg)
-renderLevel levelState =
+renderLevel : LevelState -> AnimationType -> List (Svg Msg)
+renderLevel levelState animation =
     let
         level =
             levelState.level
@@ -94,10 +133,13 @@ renderLevel levelState =
                 Just tempRooms ->
                     tempRooms
 
+        startSvgList =
+            handleAnimation animation :: []
+
         --svgListWithDoors =
         --    Dict.foldl renderDoor [] level.doors
     in
-    Dict.foldl renderRoom [] roomsToRender
+    Dict.foldl renderRoom startSvgList roomsToRender
 
 
 
@@ -172,11 +214,7 @@ renderGridCell _ value svgList =
         FigureType figureType ->
             case figureType of
                 Hero ->
-                    let
-                        attributes =
-                            SvgAttr.xlinkHref "Images/swordsman.png" :: baseGridCellAttributes value
-                    in
-                    Svg.image attributes [] :: svgList
+                    renderHeroGridCell value True :: svgList
 
                 Monster monsterType _ ->
                     case monsterType of
@@ -209,6 +247,22 @@ renderGridCell _ value svgList =
             clickableRect :: svgList
 
 
+renderHeroGridCell : GridCell -> Bool -> Svg Msg
+renderHeroGridCell gridCell withPlacement =
+    let
+        baseAttributes =
+            if withPlacement then
+                baseGridCellAttributes
+
+            else
+                baseGridCellAttributesWithoutPlacement
+
+        attributes =
+            SvgAttr.xlinkHref "Images/swordsman.png" :: baseAttributes gridCell
+    in
+    Svg.image attributes []
+
+
 createClickableRect : String -> GridCell -> Int -> Svg Msg
 createClickableRect color cell steps =
     let
@@ -222,11 +276,16 @@ createClickableRect color cell steps =
 
 baseGridCellAttributes : GridCell -> List (Attribute msg)
 baseGridCellAttributes gridCell =
+    svgAttrInt SvgAttr.x gridCell.startX
+        :: svgAttrInt SvgAttr.y gridCell.startY
+        :: baseGridCellAttributesWithoutPlacement gridCell
+
+
+baseGridCellAttributesWithoutPlacement : GridCell -> List (Attribute msg)
+baseGridCellAttributesWithoutPlacement gridCell =
     [ SvgAttr.clipPath gridCell.polygonShape
     , SvgAttr.width cellWidthString
     , SvgAttr.height cellWidthString
-    , svgAttrInt SvgAttr.x gridCell.startX
-    , svgAttrInt SvgAttr.y gridCell.startY
     ]
 
 

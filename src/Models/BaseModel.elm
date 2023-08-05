@@ -3,7 +3,7 @@ module Models.BaseModel exposing (..)
 import Draggable
 import Math.Vector2 exposing (Vec2)
 import Models.CardState exposing (CardState)
-import Models.LevelState exposing (LevelState)
+import Models.LevelState exposing (GridCell, LevelState)
 
 
 type BaseModel
@@ -20,7 +20,13 @@ type alias Model =
     , drag : Draggable.State ()
     , levelState : LevelState
     , cardState : CardState
+    , animation : AnimationType
     }
+
+
+type AnimationType
+    = NoAnimation
+    | Walk GridCell GridCell
 
 
 type alias Size =
