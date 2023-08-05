@@ -2,7 +2,7 @@ module Functions.Movement exposing (..)
 
 import Dict exposing (Dict)
 import Functions.Basic exposing (isEven)
-import Functions.Coordinates exposing (getNextCoordinate, goUp, goUpLeft)
+import Functions.Coordinates exposing (createMapCoordinateAlt, getNextCoordinate, goUp, goUpLeft)
 import Functions.DictFunctions.GridCellDict
     exposing
         ( getGridCellFromGridCellDict
@@ -221,7 +221,7 @@ makeMovementPathInTempRoomDictForLevel endCoordinate level =
                             setGridCellFromMovableToClickedUnsafe endCoordinate.roomCoordinate activeRoom.gridCells
 
                         gridCellsWithMovePathResult =
-                            makeMovementPath endCoordinate.roomCoordinate updatedGridCells
+                            makeMovementPath endCoordinate updatedGridCells
                     in
                     case gridCellsWithMovePathResult of
                         Err err ->
@@ -231,52 +231,41 @@ makeMovementPathInTempRoomDictForLevel endCoordinate level =
                             let
                                 updatedTempRooms =
                                     setGridCellsForRoomInRoomDictUnSafe activeRoom.roomNumber gridCellsWithMovePath tempRooms
-
-                                changedCellDict =
-                                    let
-                                        allChangedCells =
-                                            endCoordinate.roomCoordinate :: changedCellsList
-                                    in
-                                    Just
-                                        (Dict.fromList
-                                            [ ( activeRoom.roomNumber, allChangedCells )
-                                            ]
-                                        )
                             in
                             Ok
                                 { level
                                     | tempUpdatedRooms = Just updatedTempRooms
-                                    , changedMapCoordinatesForTempRooms = changedCellDict
+                                    , changedMapCoordinatesForTempRooms = Just changedCellsList
                                 }
 
 
-makeMovementPath : RoomCoordinate -> Dict String GridCell -> Result String ( Dict String GridCell, List RoomCoordinate )
+makeMovementPath : MapCoordinate -> Dict String GridCell -> Result String ( Dict String GridCell, List MapCoordinate )
 makeMovementPath startSpot gridCellDict =
     let
         maybeStartMovement =
-            getMovementValue startSpot gridCellDict
+            getMovementValue startSpot.roomCoordinate gridCellDict
     in
     case maybeStartMovement of
         Nothing ->
             Err "No start movement found for : makeMovementPath"
 
         Just movement ->
-            makeMovementPathRecursive movement startSpot gridCellDict []
+            makeMovementPathRecursive movement startSpot gridCellDict [ startSpot ]
 
 
-makeMovementPathRecursive : Int -> RoomCoordinate -> Dict String GridCell -> List RoomCoordinate -> Result String ( Dict String GridCell, List RoomCoordinate )
-makeMovementPathRecursive startMovement startSpot gridCellDict changedCoordinatesList =
+makeMovementPathRecursive : Int -> MapCoordinate -> Dict String GridCell -> List MapCoordinate -> Result String ( Dict String GridCell, List MapCoordinate )
+makeMovementPathRecursive startMovement startSpot gridCellDict changedMapCoordinatesList =
     let
         newMovement =
             startMovement - 1
     in
     if newMovement == 0 then
-        Ok ( gridCellDict, changedCoordinatesList )
+        Ok ( gridCellDict, changedMapCoordinatesList )
 
     else
         let
             goAroundStartSpot =
-                getGoAroundStartSpot startSpot
+                getGoAroundStartSpot startSpot.roomCoordinate
 
             nextCoordinateResult =
                 findNextCoordinateForSettingMovePath goAroundStartSpot newMovement gridCellDict Right
@@ -285,12 +274,15 @@ makeMovementPathRecursive startMovement startSpot gridCellDict changedCoordinate
             Err err ->
                 Err err
 
-            Ok nextCoordinate ->
+            Ok nextRoomCoordinate ->
                 let
                     updatedGridCellDict =
-                        setGridCellFromMovableToIsPathUnSafe nextCoordinate gridCellDict
+                        setGridCellFromMovableToIsPathUnSafe nextRoomCoordinate gridCellDict
+
+                    nextMapCoordinate =
+                        createMapCoordinateAlt startSpot.roomNumber nextRoomCoordinate
                 in
-                makeMovementPathRecursive newMovement nextCoordinate updatedGridCellDict (nextCoordinate :: changedCoordinatesList)
+                makeMovementPathRecursive newMovement nextMapCoordinate updatedGridCellDict (nextMapCoordinate :: changedMapCoordinatesList)
 
 
 findNextCoordinateForSettingMovePath : RoomCoordinate -> Int -> Dict String GridCell -> GridDirection -> Result String RoomCoordinate

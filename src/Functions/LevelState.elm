@@ -1,7 +1,7 @@
 module Functions.LevelState exposing (..)
 
-import Functions.Level exposing (removeHeroFromLevel)
-import Models.LevelState exposing (LevelState)
+import Functions.Level exposing (removeHeroFromLevel, setHeroInLevel)
+import Models.LevelState exposing (LevelState, MapCoordinate)
 
 
 makeLevelStateReadyForMoveAnimation : LevelState -> Result String LevelState
@@ -22,3 +22,17 @@ makeLevelStateReadyForMoveAnimation levelState =
                     { levelWithoutHero | tempUpdatedRooms = Nothing }
             in
             Ok { levelState | level = readyLevel }
+
+
+setHeroInLevelState : MapCoordinate -> LevelState -> Result String LevelState
+setHeroInLevelState heroSpot levelState =
+    let
+        updatedLevelResult =
+            setHeroInLevel heroSpot levelState.level
+    in
+    case updatedLevelResult of
+        Err err ->
+            Err err
+
+        Ok updatedLevel ->
+            Ok { levelState | level = updatedLevel, heroSpot = heroSpot }

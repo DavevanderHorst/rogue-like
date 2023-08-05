@@ -1,7 +1,7 @@
 module Functions.Room exposing (..)
 
 import Dict exposing (Dict)
-import Functions.DictFunctions.GridCellDict exposing (setHeroToEmptyInGridCellDictUnSafe)
+import Functions.DictFunctions.GridCellDict exposing (setHeroInGridCellDictUnSafe, setHeroToEmptyInGridCellDictUnSafe)
 import Functions.DictFunctions.RoomDict exposing (getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
 import Functions.Movement exposing (setCanBeMovedTooForMovement)
 import Models.LevelState exposing (MapCoordinate, Room, RoomCoordinate)
@@ -32,3 +32,12 @@ removeHeroFromRoomUnsafe heroSpot room =
             setHeroToEmptyInGridCellDictUnSafe heroSpot room.gridCells
     in
     { room | gridCells = gridCellsWithoutHero }
+
+
+addHeroToRoomUnsafe : RoomCoordinate -> Room -> Room
+addHeroToRoomUnsafe heroSpot room =
+    let
+        gridCellsWithHero =
+            setHeroInGridCellDictUnSafe heroSpot room.gridCells
+    in
+    { room | gridCells = gridCellsWithHero }

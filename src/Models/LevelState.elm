@@ -24,7 +24,7 @@ type Animation
 type alias Level =
     { rooms : Dict Int Room
     , tempUpdatedRooms : Maybe (Dict Int Room)
-    , changedMapCoordinatesForTempRooms : Maybe (Dict Int (List RoomCoordinate))
+    , changedMapCoordinatesForTempRooms : Maybe (List MapCoordinate)
     , monsters : Dict Int MonsterDetails
     }
 

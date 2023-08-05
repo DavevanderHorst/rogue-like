@@ -3,7 +3,8 @@ module Main exposing (main)
 import Browser
 import Browser.Dom
 import Browser.Events exposing (onResize)
-import Constants exposing (mapSizeHeight, mapSizeWidth, startCenter, startSize, startZoom)
+import Constants exposing (mapSizeHeight, mapSizeWidth, moveWaitTime, startCenter, startSize, startZoom)
+import Dict exposing (Dict)
 import Draggable
 import Functions.Abilities exposing (handleNextAbility)
 import Functions.Animations exposing (makeMoveAnimation)
@@ -11,7 +12,7 @@ import Functions.Coordinates exposing (isSameMapCoordinate)
 import Functions.DictFunctions.RoomDict exposing (getStepsToMoveTowardsClickedCell)
 import Functions.HeroCards exposing (activateDoubleClickedCard)
 import Functions.Level exposing (moveHeroInLevel, resetMovementPathInTempRoomDictForLevel, setTempRoomsToNothingForLevel, updateLevelForAbility)
-import Functions.LevelState exposing (makeLevelStateReadyForMoveAnimation)
+import Functions.LevelState exposing (makeLevelStateReadyForMoveAnimation, setHeroInLevelState)
 import Functions.Movement exposing (makeMovementPathInTempRoomDictForLevel)
 import HeroCards exposing (emptyHeroCard, startHeroCards)
 import Levels.LevelOne exposing (heroStartMapCoordinate, levelOneResult)
@@ -19,7 +20,8 @@ import Math.Vector2 as Vector2
 import Messages exposing (Msg(..))
 import Models.BaseModel exposing (AnimationType(..), BaseModel(..), Model, Size)
 import Models.CardState exposing (CardAbility(..), CardState)
-import Models.LevelState exposing (GameMode(..), LevelState, MapCoordinate)
+import Models.LevelState exposing (GameMode(..), LevelState, MapCoordinate, Room)
+import Process
 import Task
 import Views.MainView exposing (view)
 
@@ -183,6 +185,21 @@ update msg baseModel =
                 OpenDoor _ ->
                     --TODO
                     ( ErrorModel "to be implemented", Cmd.none )
+
+                NextMoveAnimation heroSpot restOfPath ->
+                    handleNextMoveAnimation model heroSpot restOfPath
+
+                StopMoveAnimation heroSpot ->
+                    let
+                        updatedLevelStateResult =
+                            setHeroInLevelState heroSpot model.levelState
+                    in
+                    case updatedLevelStateResult of
+                        Err err ->
+                            ( ErrorModel err, Cmd.none )
+
+                        Ok updatedLevel ->
+                            ( OkModel { model | levelState = updatedLevel }, Cmd.none )
 
 
 handleScreenSize : Float -> Float -> Model -> ( BaseModel, Cmd Msg )
@@ -391,16 +408,41 @@ handleMoveAnimation model =
         Ok readyLevelState ->
             case model.levelState.level.changedMapCoordinatesForTempRooms of
                 Nothing ->
-                    ( ErrorModel "No changed cells for animation", Cmd.none )
+                    ( ErrorModel "No changed cells for move animation", Cmd.none )
 
                 Just changedCoordinates ->
-                    let
-                        moveAnimationResult =
-                            makeMoveAnimation model.levelState.heroSpot changedCoordinates model.levelState.level.rooms
-                    in
-                    case moveAnimationResult of
-                        Err err ->
-                            ( ErrorModel err, Cmd.none )
+                    handleNextMoveAnimation { model | levelState = readyLevelState } model.levelState.heroSpot changedCoordinates
 
-                        Ok moveAnimation ->
-                            ( OkModel { model | levelState = readyLevelState, animation = moveAnimation }, Cmd.none )
+
+handleNextMoveAnimation : Model -> MapCoordinate -> List MapCoordinate -> ( BaseModel, Cmd Msg )
+handleNextMoveAnimation model heroSpot restOfPath =
+    let
+        maybeNextHeroSpot =
+            List.head restOfPath
+    in
+    case maybeNextHeroSpot of
+        Nothing ->
+            ( ErrorModel "We had a changed cell list, but there was nothing in it for move animation", Cmd.none )
+
+        Just nextHeroSpot ->
+            let
+                moveAnimationResult =
+                    makeMoveAnimation heroSpot nextHeroSpot model.levelState.level.rooms
+            in
+            case moveAnimationResult of
+                Err err ->
+                    ( ErrorModel err, Cmd.none )
+
+                Ok moveAnimation ->
+                    let
+                        updatedList =
+                            List.drop 1 restOfPath
+
+                        nextCommand =
+                            if List.isEmpty updatedList then
+                                Process.sleep moveWaitTime |> Task.perform (always (StopMoveAnimation nextHeroSpot))
+
+                            else
+                                Process.sleep moveWaitTime |> Task.perform (always (NextMoveAnimation nextHeroSpot updatedList))
+                    in
+                    ( OkModel { model | animation = moveAnimation }, nextCommand )

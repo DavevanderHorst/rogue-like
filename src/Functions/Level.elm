@@ -8,13 +8,23 @@ import Functions.DictFunctions.GridCellDict
         , setHeroToEmptyInGridCellDictUnSafe
         )
 import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
-import Functions.Room exposing (removeHeroFromRoomUnsafe, updateRoomsForCanBeMovedTo)
+import Functions.Room exposing (addHeroToRoomUnsafe, removeHeroFromRoomUnsafe, updateRoomsForCanBeMovedTo)
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (Level, MapCoordinate, Room, RoomCoordinate)
 
 
 removeHeroFromLevel : MapCoordinate -> Level -> Result String Level
 removeHeroFromLevel heroSpot level =
+    changeRoomInLevel heroSpot level removeHeroFromRoomUnsafe
+
+
+setHeroInLevel : MapCoordinate -> Level -> Result String Level
+setHeroInLevel heroSpot level =
+    changeRoomInLevel heroSpot level addHeroToRoomUnsafe
+
+
+changeRoomInLevel : MapCoordinate -> Level -> (RoomCoordinate -> Room -> Room) -> Result String Level
+changeRoomInLevel heroSpot level updateFunction =
     let
         roomDict =
             level.rooms
@@ -28,11 +38,11 @@ removeHeroFromLevel heroSpot level =
 
         Ok heroRoom ->
             let
-                roomWithoutHero =
-                    removeHeroFromRoomUnsafe heroSpot.roomCoordinate heroRoom
+                updatedRoom =
+                    updateFunction heroSpot.roomCoordinate heroRoom
 
                 updatedRoomDict =
-                    addRoomToRoomDictUnSafe roomWithoutHero roomDict
+                    addRoomToRoomDictUnSafe updatedRoom roomDict
             in
             Ok { level | rooms = updatedRoomDict }
 
@@ -99,7 +109,7 @@ resetMovementPathInTempRoomDictForLevel level =
                 Just changedMapCoordinates ->
                     let
                         updatedTempRoomDictResult =
-                            Dict.foldl setCoordinatesToCanBeMovedToo (Ok tempRoomDict) changedMapCoordinates
+                            List.foldl setCoordinatesToCanBeMovedToo (Ok tempRoomDict) changedMapCoordinates
                     in
                     case updatedTempRoomDictResult of
                         Err err ->
@@ -109,16 +119,16 @@ resetMovementPathInTempRoomDictForLevel level =
                             Ok { level | tempUpdatedRooms = Just updatedTempRoomDict }
 
 
-setCoordinatesToCanBeMovedToo : Int -> List RoomCoordinate -> Result String (Dict Int Room) -> Result String (Dict Int Room)
-setCoordinatesToCanBeMovedToo roomNumber coordinates roomsResult =
-    case roomsResult of
+setCoordinatesToCanBeMovedToo : MapCoordinate -> Result String (Dict Int Room) -> Result String (Dict Int Room)
+setCoordinatesToCanBeMovedToo spot roomDictResult =
+    case roomDictResult of
         Err err ->
             Err err
 
         Ok roomDict ->
             let
                 getRoomResult =
-                    getRoomFromRoomDict roomNumber roomDict
+                    getRoomFromRoomDict spot.roomNumber roomDict
             in
             case getRoomResult of
                 Err err ->
@@ -127,9 +137,9 @@ setCoordinatesToCanBeMovedToo roomNumber coordinates roomsResult =
                 Ok activeRoom ->
                     let
                         updatedGridCells =
-                            List.foldl setGridCellFromPartOfPathToCanBeMovedTo activeRoom.gridCells coordinates
+                            setGridCellFromPartOfPathToCanBeMovedTo spot.roomCoordinate activeRoom.gridCells
                     in
-                    Ok (setGridCellsForRoomInRoomDictUnSafe roomNumber updatedGridCells roomDict)
+                    Ok (setGridCellsForRoomInRoomDictUnSafe spot.roomNumber updatedGridCells roomDict)
 
 
 updateLevelForAbility : CardAbility -> MapCoordinate -> Level -> Result String Level

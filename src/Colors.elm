@@ -33,7 +33,7 @@ canBeClickedColorString =
 
 isPartOfMovePathColorString : String
 isPartOfMovePathColorString =
-    "red"
+    "#ECFFDC"
 
 
 blackColorString : String

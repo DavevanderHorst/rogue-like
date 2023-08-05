@@ -125,3 +125,12 @@ mapSizeHeight =
 cardRowHeight : String
 cardRowHeight =
     "24%"
+
+
+
+-- Animation
+
+
+moveWaitTime : Float
+moveWaitTime =
+    2000
