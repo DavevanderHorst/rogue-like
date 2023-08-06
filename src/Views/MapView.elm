@@ -1,8 +1,7 @@
 module Views.MapView exposing (..)
 
-import Basics as Math
 import Colors exposing (blackColorString, canBeClickedColorString, isClickedColorString, isPartOfMovePathColorString, whiteColorString)
-import Constants exposing (cellWidthString)
+import Constants exposing (cellWidthString, moveAnimationDuration)
 import Dict
 import Draggable
 import Html exposing (div, text)
@@ -14,7 +13,7 @@ import Messages exposing (Msg(..))
 import Models.BaseModel exposing (AnimationType(..), Model, Size)
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (CellState(..), FigureType(..), GameMode(..), GridCell, LevelState, MonsterType(..), Room)
-import Simple.Animation as Animation exposing (Animation)
+import Simple.Animation as Animation exposing (Animation, Step)
 import Simple.Animation.Animated as Animated
 import Simple.Animation.Property as P
 import Svg exposing (Attribute, Svg)
@@ -80,22 +79,26 @@ handleAnimation animation =
         NoAnimation ->
             Svg.g [] []
 
-        Walk startGridCell endGridCell ->
-            animatedG (hover startGridCell endGridCell) [] [ renderHeroGridCell startGridCell False ]
+        Walk startGridCell rest ->
+            animatedG (hover startGridCell rest) [] [ renderHeroGridCell startGridCell False ]
 
 
 
 -- Svg Animated Helpers
 
 
-hover : GridCell -> GridCell -> Animation
-hover start end =
+hover : GridCell -> List GridCell -> Animation
+hover start rest =
     Animation.steps
         { startAt = [ P.x (toFloat start.startX), P.y (toFloat start.startY) ]
-        , options = [ Animation.easeInOutQuad ]
+        , options = []
         }
-        [ Animation.step 2000 [ P.x (toFloat end.startX), P.y (toFloat end.startY) ]
-        ]
+        (List.map makeAnimationStep rest)
+
+
+makeAnimationStep : GridCell -> Step
+makeAnimationStep cell =
+    Animation.step moveAnimationDuration [ P.x (toFloat cell.startX), P.y (toFloat cell.startY) ]
 
 
 animatedG : Animation -> List (Svg.Attribute msg) -> List (Svg msg) -> Svg msg

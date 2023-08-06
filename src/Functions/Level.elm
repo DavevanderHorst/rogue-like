@@ -1,12 +1,7 @@
 module Functions.Level exposing (..)
 
 import Dict exposing (Dict)
-import Functions.DictFunctions.GridCellDict
-    exposing
-        ( setGridCellFromPartOfPathToCanBeMovedTo
-        , setHeroInGridCellDictUnSafe
-        , setHeroToEmptyInGridCellDictUnSafe
-        )
+import Functions.DictFunctions.GridCellDict exposing (setGridCellFromPartOfPathToCanBeMovedTo)
 import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
 import Functions.Room exposing (addHeroToRoomUnsafe, removeHeroFromRoomUnsafe, updateRoomsForCanBeMovedTo)
 import Models.CardState exposing (CardAbility(..))
@@ -45,54 +40,6 @@ changeRoomInLevel heroSpot level updateFunction =
                     addRoomToRoomDictUnSafe updatedRoom roomDict
             in
             Ok { level | rooms = updatedRoomDict }
-
-
-moveHeroInLevel : MapCoordinate -> MapCoordinate -> Level -> Result String Level
-moveHeroInLevel old newHeroSpot level =
-    let
-        roomDict =
-            level.rooms
-
-        oldHeroRoomResult =
-            getRoomFromRoomDict old.roomNumber roomDict
-    in
-    case oldHeroRoomResult of
-        Err err ->
-            Err err
-
-        Ok oldHeroRoom ->
-            let
-                noHeroInGridCells =
-                    setHeroToEmptyInGridCellDictUnSafe old.roomCoordinate oldHeroRoom.gridCells
-            in
-            if old.roomNumber == newHeroSpot.roomNumber then
-                let
-                    gridCellsWithHero =
-                        setHeroInGridCellDictUnSafe newHeroSpot.roomCoordinate noHeroInGridCells
-
-                    newRoomDict =
-                        setGridCellsForRoomInRoomDictUnSafe oldHeroRoom.roomNumber gridCellsWithHero roomDict
-                in
-                Ok { level | rooms = newRoomDict }
-
-            else
-                let
-                    newHeroRoomResult =
-                        getRoomFromRoomDict newHeroSpot.roomNumber roomDict
-                in
-                case newHeroRoomResult of
-                    Err err ->
-                        Err err
-
-                    Ok newHeroRoom ->
-                        let
-                            gridCellsWithHero =
-                                setHeroInGridCellDictUnSafe newHeroSpot.roomCoordinate newHeroRoom.gridCells
-
-                            newRoomDict =
-                                setGridCellsForRoomInRoomDictUnSafe oldHeroRoom.roomNumber gridCellsWithHero roomDict
-                        in
-                        Ok { level | rooms = newRoomDict }
 
 
 resetMovementPathInTempRoomDictForLevel : Level -> Result String Level
@@ -165,8 +112,3 @@ updateLevelForAbility ability heroSpot level =
         Attack _ ->
             -- TODO
             Err "To be implemented"
-
-
-setTempRoomsToNothingForLevel : Level -> Level
-setTempRoomsToNothingForLevel level =
-    { level | tempUpdatedRooms = Nothing }

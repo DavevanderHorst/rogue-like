@@ -3,16 +3,15 @@ module Main exposing (main)
 import Browser
 import Browser.Dom
 import Browser.Events exposing (onResize)
-import Constants exposing (mapSizeHeight, mapSizeWidth, moveWaitTime, startCenter, startSize, startZoom)
-import Dict exposing (Dict)
+import Constants exposing (mapSizeHeight, mapSizeWidth, moveAnimationDuration, startCenter, startSize, startZoom)
 import Draggable
 import Functions.Abilities exposing (handleNextAbility)
 import Functions.Animations exposing (makeMoveAnimation)
 import Functions.Coordinates exposing (isSameMapCoordinate)
 import Functions.DictFunctions.RoomDict exposing (getStepsToMoveTowardsClickedCell)
 import Functions.HeroCards exposing (activateDoubleClickedCard)
-import Functions.Level exposing (moveHeroInLevel, resetMovementPathInTempRoomDictForLevel, setTempRoomsToNothingForLevel, updateLevelForAbility)
-import Functions.LevelState exposing (makeLevelStateReadyForMoveAnimation, setHeroInLevelState)
+import Functions.Level exposing (resetMovementPathInTempRoomDictForLevel, setHeroInLevel, updateLevelForAbility)
+import Functions.LevelState exposing (makeLevelStateReadyForMoveAnimation)
 import Functions.Movement exposing (makeMovementPathInTempRoomDictForLevel)
 import HeroCards exposing (emptyHeroCard, startHeroCards)
 import Levels.LevelOne exposing (heroStartMapCoordinate, levelOneResult)
@@ -147,9 +146,20 @@ update msg baseModel =
                                     case ability of
                                         Move movement ->
                                             if isSameMapCoordinate formerClickedCell clickedCoordinate then
-                                                -- same cell is clicked twice, so we move
-                                                -- handleTwiceClickedMapCoordinateForMovement model clickedCoordinate movement
-                                                handleMoveAnimation model
+                                                let
+                                                    stepsMovedResult =
+                                                        getStepsToMoveTowardsClickedCell clickedCoordinate model.levelState.level
+                                                in
+                                                case stepsMovedResult of
+                                                    Err err ->
+                                                        ( ErrorModel err, Cmd.none )
+
+                                                    Ok stepsMoved ->
+                                                        let
+                                                            stepsLeft =
+                                                                movement - stepsMoved
+                                                        in
+                                                        makeReadyForMoveAnimation model clickedCoordinate stepsLeft
 
                                             else
                                                 -- other cell is clicked
@@ -186,20 +196,27 @@ update msg baseModel =
                     --TODO
                     ( ErrorModel "to be implemented", Cmd.none )
 
-                NextMoveAnimation heroSpot restOfPath ->
-                    handleNextMoveAnimation model heroSpot restOfPath
-
-                StopMoveAnimation heroSpot ->
+                MoveAnimationIsDone stepsLeft ->
                     let
-                        updatedLevelStateResult =
-                            setHeroInLevelState heroSpot model.levelState
+                        oldLevelState =
+                            model.levelState
+
+                        levelWithHeroResultResult =
+                            setHeroInLevel oldLevelState.heroSpot oldLevelState.level
                     in
-                    case updatedLevelStateResult of
+                    case levelWithHeroResultResult of
                         Err err ->
                             ( ErrorModel err, Cmd.none )
 
                         Ok updatedLevel ->
-                            ( OkModel { model | levelState = updatedLevel }, Cmd.none )
+                            let
+                                updatedLevelState =
+                                    { oldLevelState | level = updatedLevel }
+
+                                updatedModel =
+                                    { model | levelState = updatedLevelState }
+                            in
+                            handleMovementAbility stepsLeft updatedModel
 
 
 handleScreenSize : Float -> Float -> Model -> ( BaseModel, Cmd Msg )
@@ -281,74 +298,40 @@ handleNewlyClickedMapCoordinate model new old =
                         )
 
 
-handleTwiceClickedMapCoordinateForMovement : Model -> MapCoordinate -> Int -> ( BaseModel, Cmd Msg )
-handleTwiceClickedMapCoordinateForMovement model newHeroSpot movement =
-    case model.levelState.level.tempUpdatedRooms of
-        Nothing ->
-            ( ErrorModel "There is no temporary saved room dict in : handleTwiceClickedMapCoordinateForMovement", Cmd.none )
+handleMovementAbility : Int -> Model -> ( BaseModel, Cmd Msg )
+handleMovementAbility stepsLeft model =
+    if stepsLeft == 0 then
+        handleNextAbility model
 
-        Just tempRoomDict ->
-            let
-                stepsMovedResult =
-                    getStepsToMoveTowardsClickedCell newHeroSpot tempRoomDict
-            in
-            case stepsMovedResult of
-                Err err ->
-                    ( ErrorModel err, Cmd.none )
+    else
+        -- there is still some movement left
+        -- so we adjust our current ability
+        let
+            oldLevelState =
+                model.levelState
 
-                Ok stepsMoved ->
-                    let
-                        oldLevelState =
-                            model.levelState
+            updatedAbility =
+                Move stepsLeft
 
-                        moveHeroInLevelResult =
-                            moveHeroInLevel oldLevelState.heroSpot newHeroSpot oldLevelState.level
-                    in
-                    case moveHeroInLevelResult of
-                        Err err ->
-                            ( ErrorModel err, Cmd.none )
+            updatedLevelResult =
+                updateLevelForAbility updatedAbility oldLevelState.heroSpot oldLevelState.level
+        in
+        case updatedLevelResult of
+            Err err ->
+                ( ErrorModel err, Cmd.none )
 
-                        Ok levelWithMovedHero ->
-                            let
-                                newLevelState =
-                                    { oldLevelState
-                                        | heroSpot = newHeroSpot
-                                        , formerClickedCell = Nothing
-                                        , level = setTempRoomsToNothingForLevel levelWithMovedHero
-                                    }
-
-                                movementLeft =
-                                    movement - stepsMoved
-                            in
-                            if movementLeft == 0 then
-                                handleNextAbility { model | levelState = newLevelState }
-
-                            else
-                                -- there is still some movement left
-                                -- so we adjust our current ability
-                                let
-                                    updatedAbility =
-                                        Move movementLeft
-
-                                    updatedLevelResult =
-                                        updateLevelForAbility updatedAbility newLevelState.heroSpot newLevelState.level
-                                in
-                                case updatedLevelResult of
-                                    Err err ->
-                                        ( ErrorModel err, Cmd.none )
-
-                                    Ok updatedLevel ->
-                                        let
-                                            finishedLevelState =
-                                                { newLevelState
-                                                    | level = updatedLevel
-                                                    , gameMode = CardAction updatedAbility
-                                                }
-                                        in
-                                        ( OkModel <|
-                                            { model | levelState = finishedLevelState }
-                                        , Cmd.none
-                                        )
+            Ok updatedLevel ->
+                let
+                    newLevelState =
+                        { oldLevelState
+                            | level = updatedLevel
+                            , gameMode = CardAction updatedAbility
+                        }
+                in
+                ( OkModel <|
+                    { model | levelState = newLevelState }
+                , Cmd.none
+                )
 
 
 handleTwiceClickedCard : Model -> Int -> ( BaseModel, Cmd Msg )
@@ -395,8 +378,8 @@ updateLevelState model transform =
     { model | levelState = transform model.levelState }
 
 
-handleMoveAnimation : Model -> ( BaseModel, Cmd Msg )
-handleMoveAnimation model =
+makeReadyForMoveAnimation : Model -> MapCoordinate -> Int -> ( BaseModel, Cmd Msg )
+makeReadyForMoveAnimation model newHeroSpot movement =
     let
         makeReadyResult =
             makeLevelStateReadyForMoveAnimation model.levelState
@@ -411,38 +394,32 @@ handleMoveAnimation model =
                     ( ErrorModel "No changed cells for move animation", Cmd.none )
 
                 Just changedCoordinates ->
-                    handleNextMoveAnimation { model | levelState = readyLevelState } model.levelState.heroSpot changedCoordinates
-
-
-handleNextMoveAnimation : Model -> MapCoordinate -> List MapCoordinate -> ( BaseModel, Cmd Msg )
-handleNextMoveAnimation model heroSpot restOfPath =
-    let
-        maybeNextHeroSpot =
-            List.head restOfPath
-    in
-    case maybeNextHeroSpot of
-        Nothing ->
-            ( ErrorModel "We had a changed cell list, but there was nothing in it for move animation", Cmd.none )
-
-        Just nextHeroSpot ->
-            let
-                moveAnimationResult =
-                    makeMoveAnimation heroSpot nextHeroSpot model.levelState.level.rooms
-            in
-            case moveAnimationResult of
-                Err err ->
-                    ( ErrorModel err, Cmd.none )
-
-                Ok moveAnimation ->
                     let
-                        updatedList =
-                            List.drop 1 restOfPath
+                        currentHeroSpot =
+                            readyLevelState.heroSpot
 
-                        nextCommand =
-                            if List.isEmpty updatedList then
-                                Process.sleep moveWaitTime |> Task.perform (always (StopMoveAnimation nextHeroSpot))
-
-                            else
-                                Process.sleep moveWaitTime |> Task.perform (always (NextMoveAnimation nextHeroSpot updatedList))
+                        levelStateWithNewHeroSpot =
+                            { readyLevelState | heroSpot = newHeroSpot }
                     in
-                    ( OkModel { model | animation = moveAnimation }, nextCommand )
+                    handleMoveAnimation { model | levelState = levelStateWithNewHeroSpot } currentHeroSpot changedCoordinates movement
+
+
+handleMoveAnimation : Model -> MapCoordinate -> List MapCoordinate -> Int -> ( BaseModel, Cmd Msg )
+handleMoveAnimation model heroSpot restOfPath movement =
+    let
+        makeMoveAnimationResult =
+            makeMoveAnimation heroSpot restOfPath model.levelState.level.rooms
+    in
+    case makeMoveAnimationResult of
+        Err err ->
+            ( ErrorModel err, Cmd.none )
+
+        Ok moveAnimation ->
+            let
+                steps =
+                    List.length restOfPath
+
+                nextCommand =
+                    Process.sleep (toFloat <| steps * moveAnimationDuration) |> Task.perform (always (MoveAnimationIsDone movement))
+            in
+            ( OkModel { model | animation = moveAnimation }, nextCommand )

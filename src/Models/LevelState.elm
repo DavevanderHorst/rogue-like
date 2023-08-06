@@ -11,14 +11,7 @@ type alias LevelState =
     , clickedCard : Maybe Int
     , heroSpot : MapCoordinate
     , maybeHeroSpotClosedDoorNumber : Maybe Int
-
-    --, animation : Animation
     }
-
-
-type Animation
-    = None
-    | Moving
 
 
 type alias Level =

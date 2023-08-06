@@ -131,6 +131,6 @@ cardRowHeight =
 -- Animation
 
 
-moveWaitTime : Float
-moveWaitTime =
-    2000
+moveAnimationDuration : Int
+moveAnimationDuration =
+    500

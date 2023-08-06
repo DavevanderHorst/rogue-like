@@ -18,5 +18,4 @@ type Msg
     | SkipMovement
     | SkipAttack
     | OpenDoor Int
-    | NextMoveAnimation MapCoordinate (List MapCoordinate)
-    | StopMoveAnimation MapCoordinate
+    | MoveAnimationIsDone Int

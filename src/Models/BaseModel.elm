@@ -26,7 +26,7 @@ type alias Model =
 
 type AnimationType
     = NoAnimation
-    | Walk GridCell GridCell
+    | Walk GridCell (List GridCell)
 
 
 type alias Size =

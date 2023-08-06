@@ -2,7 +2,7 @@ module Functions.DictFunctions.RoomDict exposing (..)
 
 import Dict exposing (Dict)
 import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, getStepsFromGridCellForClickedCell)
-import Models.LevelState exposing (GridCell, MapCoordinate, Room, RoomCoordinate)
+import Models.LevelState exposing (GridCell, Level, MapCoordinate, Room, RoomCoordinate)
 
 
 getRoomFromRoomDict : Int -> Dict Int Room -> Result String Room
@@ -56,15 +56,20 @@ setGridCells gridCells =
         (\room -> { room | gridCells = gridCells })
 
 
-getStepsToMoveTowardsClickedCell : MapCoordinate -> Dict Int Room -> Result String Int
-getStepsToMoveTowardsClickedCell spot roomDict =
-    let
-        getRoomResult =
-            getRoomFromRoomDict spot.roomNumber roomDict
-    in
-    case getRoomResult of
-        Err err ->
-            Err err
+getStepsToMoveTowardsClickedCell : MapCoordinate -> Level -> Result String Int
+getStepsToMoveTowardsClickedCell spot level =
+    case level.tempUpdatedRooms of
+        Nothing ->
+            Err "Cant get steps to move, cause temp rooms are empty"
 
-        Ok activeRoom ->
-            getStepsFromGridCellForClickedCell spot.roomCoordinate activeRoom.gridCells
+        Just tempRooms ->
+            let
+                getRoomResult =
+                    getRoomFromRoomDict spot.roomNumber tempRooms
+            in
+            case getRoomResult of
+                Err err ->
+                    Err err
+
+                Ok activeRoom ->
+                    getStepsFromGridCellForClickedCell spot.roomCoordinate activeRoom.gridCells
