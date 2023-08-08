@@ -18,20 +18,21 @@ buttonsView state animation mapWidth =
 
     else
         let
-            skipButton =
+            ( skipButton, isMovement ) =
                 case state.gameMode of
                     CardAction cardAbility ->
                         case cardAbility of
                             Move _ ->
-                                skipMovementButton True
+                                ( skipMovementButton True, True )
 
                             Attack _ ->
-                                skipAttackButton True
+                                ( skipAttackButton True, False )
 
                     ChooseCard ->
-                        skipMovementButton False
+                        ( skipMovementButton False, False )
 
             openDoorBut =
+                -- only when ability is move and there is a closed door
                 case getGridCellFromRoomDict state.heroSpot state.level.rooms of
                     Err _ ->
                         openDoorButton False 0
@@ -42,11 +43,11 @@ buttonsView state animation mapWidth =
                                 openDoorButton False 0
 
                             Just door ->
-                                if door.doorIsOpen then
-                                    openDoorButton False 0
+                                if not door.doorIsOpen && isMovement then
+                                    openDoorButton True door.doorNumber
 
                                 else
-                                    openDoorButton True door.doorNumber
+                                    openDoorButton False 0
         in
         div
             [ Attr.style "position" "absolute"
