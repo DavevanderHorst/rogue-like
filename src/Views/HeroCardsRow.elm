@@ -37,7 +37,7 @@ generateHeroCard state heroCard =
         attributes =
             case state.gameMode of
                 ChooseCard ->
-                    case state.clickedCard of
+                    case state.maybeClickedCard of
                         Nothing ->
                             canBeClickedHeroCardAttributes heroCard.cardNumber
 

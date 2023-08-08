@@ -14,6 +14,14 @@ type FigureCreationType
     | DummyFigure
 
 
+type alias DoorData =
+    { baseRoomNumber : Int
+    , baseRoomDoorRoomCoordinate : RoomCoordinate
+    , baseRoomDoorDirection : DoorDirection
+    , connectedRoomDoorRoomCoordinate : RoomCoordinate
+    }
+
+
 type DoorDirection
     = DoorUp
     | DoorDown

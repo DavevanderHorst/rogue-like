@@ -1,8 +1,8 @@
 module Functions.DictFunctions.RoomDict exposing (..)
 
 import Dict exposing (Dict)
-import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, getStepsFromGridCellForClickedCell)
-import Models.LevelState exposing (GridCell, Level, MapCoordinate, Room, RoomCoordinate)
+import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, getStepsFromGridCellForClickedCell, openGridCellDoorInGridCellDictUnSafe)
+import Models.LevelState exposing (Door, GridCell, Level, MapCoordinate, Room, RoomCoordinate)
 
 
 getRoomFromRoomDict : Int -> Dict Int Room -> Result String Room
@@ -73,3 +73,38 @@ getStepsToMoveTowardsClickedCell spot level =
 
                 Ok activeRoom ->
                     getStepsFromGridCellForClickedCell spot.roomCoordinate activeRoom.gridCells
+
+
+openGridCellDoorsForOpenedDoor : Door -> Dict Int Room -> Result String (Dict Int Room)
+openGridCellDoorsForOpenedDoor door roomDict =
+    let
+        newRoomDictResult =
+            openGridCellDoor door.connectedMapCoordinateOne roomDict
+    in
+    case newRoomDictResult of
+        Err err ->
+            Err err
+
+        Ok newRoomDict ->
+            openGridCellDoor door.connectedMapCoordinateTwo newRoomDict
+
+
+openGridCellDoor : MapCoordinate -> Dict Int Room -> Result String (Dict Int Room)
+openGridCellDoor spot rooms =
+    let
+        getRoomResult =
+            getRoomFromRoomDict spot.roomNumber rooms
+    in
+    case getRoomResult of
+        Err err ->
+            Err err
+
+        Ok room ->
+            let
+                updatedGridCells =
+                    openGridCellDoorInGridCellDictUnSafe spot.roomCoordinate room.gridCells
+
+                updatedRoom =
+                    { room | gridCells = updatedGridCells, isOpen = True }
+            in
+            Ok (addRoomToRoomDictUnSafe updatedRoom rooms)

@@ -25,6 +25,11 @@ addGridCellTooGridCellDictUnSafe gridCell gridCellDict =
     Dict.insert (createGridCellDictKey gridCell.mapCoordinate.roomCoordinate) gridCell gridCellDict
 
 
+openGridCellDoorInGridCellDictUnSafe : RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+openGridCellDoorInGridCellDictUnSafe roomCoordinate gridCellDict =
+    updateGridCellDict roomCoordinate openGridCellDoor gridCellDict
+
+
 setGridCellFromMovableToClickedUnsafe : RoomCoordinate -> Dict String GridCell -> Dict String GridCell
 setGridCellFromMovableToClickedUnsafe roomCoordinate gridCellDict =
     -- Unsafe, only use when your 100% sure cellState is CanBeMovedToo
@@ -70,6 +75,23 @@ setCellStateToHero : Maybe GridCell -> Maybe GridCell
 setCellStateToHero =
     Maybe.map
         (\old -> { old | cellState = FigureType Hero })
+
+
+openGridCellDoor : Maybe GridCell -> Maybe GridCell
+openGridCellDoor =
+    Maybe.map
+        (\old ->
+            case old.maybeGridDoorDetails of
+                Nothing ->
+                    old
+
+                Just door ->
+                    let
+                        newDoor =
+                            { door | doorIsOpen = True }
+                    in
+                    { old | maybeGridDoorDetails = Just newDoor }
+        )
 
 
 setCellStateToEmpty : Maybe GridCell -> Maybe GridCell

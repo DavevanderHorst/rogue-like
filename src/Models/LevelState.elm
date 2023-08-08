@@ -8,9 +8,8 @@ type alias LevelState =
     { level : Level
     , gameMode : GameMode
     , formerClickedCell : Maybe MapCoordinate
-    , clickedCard : Maybe Int
+    , maybeClickedCard : Maybe Int
     , heroSpot : MapCoordinate
-    , maybeHeroSpotClosedDoorNumber : Maybe Int
     }
 
 
@@ -18,6 +17,7 @@ type alias Level =
     { rooms : Dict Int Room
     , tempUpdatedRooms : Maybe (Dict Int Room)
     , changedMapCoordinatesForTempRooms : Maybe (List MapCoordinate)
+    , doors : Dict Int Door
     , monsters : Dict Int MonsterDetails
     }
 
@@ -32,12 +32,29 @@ type alias Room =
     }
 
 
+type alias Door =
+    { doorNumber : Int
+    , isOpen : Bool
+    , connectedMapCoordinateOne : MapCoordinate
+    , connectedMapCoordinateTwo : MapCoordinate
+    , measurements : Measurements
+    }
+
+
 type alias GridCell =
     { startX : Int
     , startY : Int
     , mapCoordinate : MapCoordinate
     , polygonShape : String
+    , maybeGridDoorDetails : Maybe GridDoorDetails
     , cellState : CellState
+    }
+
+
+type alias GridDoorDetails =
+    { doorNumber : Int
+    , doorIsOpen : Bool
+    , connectedMapCoordinate : MapCoordinate
     }
 
 

@@ -1,6 +1,6 @@
 module Views.MapView exposing (..)
 
-import Colors exposing (blackColorString, canBeClickedColorString, isClickedColorString, isPartOfMovePathColorString, whiteColorString)
+import Colors exposing (blackColorString, canBeClickedColorString, closedDoorColor, isClickedColorString, isPartOfMovePathColorString, openDoorColor, whiteColorString)
 import Constants exposing (cellWidthString, moveAnimationDuration)
 import Dict
 import Draggable
@@ -12,7 +12,7 @@ import Math.Vector2 as Vec2
 import Messages exposing (Msg(..))
 import Models.BaseModel exposing (AnimationType(..), Model, Size)
 import Models.CardState exposing (CardAbility(..))
-import Models.LevelState exposing (CellState(..), FigureType(..), GameMode(..), GridCell, LevelState, MonsterType(..), Room)
+import Models.LevelState exposing (CellState(..), Door, FigureType(..), GameMode(..), GridCell, LevelState, MonsterType(..), Room)
 import Simple.Animation as Animation exposing (Animation, Step)
 import Simple.Animation.Animated as Animated
 import Simple.Animation.Property as P
@@ -69,7 +69,7 @@ mapView model =
                 ]
                 (renderLevel model.levelState model.animation)
             ]
-        , buttonsView model.levelState size.width
+        , buttonsView model.levelState model.animation size.width
         ]
 
 
@@ -139,36 +139,34 @@ renderLevel levelState animation =
         startSvgList =
             handleAnimation animation :: []
 
-        --svgListWithDoors =
-        --    Dict.foldl renderDoor [] level.doors
+        svgListWithDoors =
+            Dict.foldl renderDoor startSvgList level.doors
     in
-    Dict.foldl renderRoom startSvgList roomsToRender
+    Dict.foldl renderRoom svgListWithDoors roomsToRender
 
 
+renderDoor : Int -> Door -> List (Svg Msg) -> List (Svg Msg)
+renderDoor _ value svgList =
+    let
+        measurements =
+            value.measurements
 
---
---renderDoor : Int -> Door -> List (Svg Msg) -> List (Svg Msg)
---renderDoor _ value svgList =
---    let
---        measurements =
---            value.measurements
---
---        color =
---            if value.isOpen then
---                openDoorColor
---
---            else
---                closedDoorColor
---    in
---    Svg.rect
---        [ SvgAttr.fill color
---        , svgAttrInt SvgAttr.x measurements.startX
---        , svgAttrInt SvgAttr.y measurements.startY
---        , svgAttrInt SvgAttr.width measurements.width
---        , svgAttrInt SvgAttr.height measurements.height
---        ]
---        []
---        :: svgList
+        color =
+            if value.isOpen then
+                openDoorColor
+
+            else
+                closedDoorColor
+    in
+    Svg.rect
+        [ SvgAttr.fill color
+        , svgAttrInt SvgAttr.x measurements.startX
+        , svgAttrInt SvgAttr.y measurements.startY
+        , svgAttrInt SvgAttr.width measurements.width
+        , svgAttrInt SvgAttr.height measurements.height
+        ]
+        []
+        :: svgList
 
 
 renderRoom : Int -> Room -> List (Svg Msg) -> List (Svg Msg)

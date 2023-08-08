@@ -1,46 +1,61 @@
 module Views.MapButtons exposing (..)
 
 import FeatherIcons
+import Functions.DictFunctions.RoomDict exposing (getGridCellFromRoomDict)
 import Html exposing (Html, button, div)
 import Html.Attributes as Attr
 import Html.Events exposing (onClick)
 import Messages exposing (Msg(..))
+import Models.BaseModel exposing (AnimationType(..))
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (GameMode(..), LevelState)
 
 
-buttonsView : LevelState -> Float -> Html Msg
-buttonsView state mapWidth =
-    let
-        skipButton =
-            case state.gameMode of
-                CardAction cardAbility ->
-                    case cardAbility of
-                        Move _ ->
-                            skipMovementButton True
+buttonsView : LevelState -> AnimationType -> Float -> Html Msg
+buttonsView state animation mapWidth =
+    if animation /= NoAnimation then
+        div [] []
 
-                        Attack _ ->
-                            skipAttackButton True
+    else
+        let
+            skipButton =
+                case state.gameMode of
+                    CardAction cardAbility ->
+                        case cardAbility of
+                            Move _ ->
+                                skipMovementButton True
 
-                ChooseCard ->
-                    skipMovementButton False
+                            Attack _ ->
+                                skipAttackButton True
 
-        openDoorBut =
-            case state.maybeHeroSpotClosedDoorNumber of
-                Nothing ->
-                    openDoorButton False 0
+                    ChooseCard ->
+                        skipMovementButton False
 
-                Just doorNumber ->
-                    openDoorButton True doorNumber
-    in
-    div
-        [ Attr.style "position" "absolute"
-        , Attr.style "left" (String.fromFloat (mapWidth - 20) ++ "px")
-        , Attr.style "top" "0"
-        , Attr.style "display" "flex"
-        , Attr.style "flex-direction" "column"
-        ]
-        [ resetMapButton, skipButton, openDoorBut ]
+            openDoorBut =
+                case getGridCellFromRoomDict state.heroSpot state.level.rooms of
+                    Err _ ->
+                        openDoorButton False 0
+
+                    Ok heroGridCell ->
+                        case heroGridCell.maybeGridDoorDetails of
+                            Nothing ->
+                                openDoorButton False 0
+
+                            Just door ->
+                                if door.doorIsOpen then
+                                    openDoorButton False 0
+
+                                else
+                                    openDoorButton True door.doorNumber
+        in
+        div
+            [ Attr.style "position" "absolute"
+            , Attr.style "left" (String.fromFloat (mapWidth - 20) ++ "px")
+            , Attr.style "top" "0"
+            , Attr.style "display" "flex"
+            , Attr.style "flex-direction" "column"
+            ]
+            [ resetMapButton, skipButton, openDoorBut ]
 
 
 openDoorButton : Bool -> Int -> Html Msg

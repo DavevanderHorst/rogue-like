@@ -11,7 +11,7 @@ import Functions.Coordinates exposing (isSameMapCoordinate)
 import Functions.DictFunctions.RoomDict exposing (getStepsToMoveTowardsClickedCell)
 import Functions.HeroCards exposing (activateDoubleClickedCard)
 import Functions.Level exposing (resetMovementPathInTempRoomDictForLevel, setHeroInLevel, updateLevelForAbility)
-import Functions.LevelState exposing (makeLevelStateReadyForMoveAnimation)
+import Functions.LevelState exposing (makeLevelStateReadyForMoveAnimation, openDoorInLevelState)
 import Functions.Movement exposing (makeMovementPathInTempRoomDictForLevel)
 import HeroCards exposing (emptyHeroCard, startHeroCards)
 import Levels.LevelOne exposing (heroStartMapCoordinate, levelOneResult)
@@ -63,9 +63,8 @@ initLevelStateResult =
                 { level = lvl
                 , gameMode = ChooseCard
                 , formerClickedCell = Nothing
-                , clickedCard = Nothing
+                , maybeClickedCard = Nothing
                 , heroSpot = heroStartMapCoordinate
-                , maybeHeroSpotClosedDoorNumber = Nothing
                 }
 
         Err err ->
@@ -173,7 +172,7 @@ update msg baseModel =
                                     ( ErrorModel "Choose card not possible in map is clicked", Cmd.none )
 
                 CardIsClicked number ->
-                    case model.levelState.clickedCard of
+                    case model.levelState.maybeClickedCard of
                         Nothing ->
                             ( OkModel <| addClickedCardNumberToModel number model, Cmd.none )
 
@@ -185,26 +184,33 @@ update msg baseModel =
                                 ( OkModel <| addClickedCardNumberToModel number model, Cmd.none )
 
                 SkipMovement ->
-                    --TODO
-                    ( ErrorModel "to be implemented", Cmd.none )
+                    handleNextAbility model
 
                 SkipAttack ->
                     --TODO
                     ( ErrorModel "to be implemented", Cmd.none )
 
-                OpenDoor _ ->
-                    --TODO
-                    ( ErrorModel "to be implemented", Cmd.none )
+                OpenDoor doorNumber ->
+                    let
+                        openDoorResult =
+                            openDoorInLevelState doorNumber model.levelState
+                    in
+                    case openDoorResult of
+                        Err err ->
+                            ( ErrorModel err, Cmd.none )
+
+                        Ok stateWithOpenedDoor ->
+                            ( OkModel { model | levelState = stateWithOpenedDoor }, Cmd.none )
 
                 MoveAnimationIsDone stepsLeft ->
                     let
                         oldLevelState =
                             model.levelState
 
-                        levelWithHeroResultResult =
+                        levelWithHeroResult =
                             setHeroInLevel oldLevelState.heroSpot oldLevelState.level
                     in
-                    case levelWithHeroResultResult of
+                    case levelWithHeroResult of
                         Err err ->
                             ( ErrorModel err, Cmd.none )
 
@@ -214,7 +220,7 @@ update msg baseModel =
                                     { oldLevelState | level = updatedLevel }
 
                                 updatedModel =
-                                    { model | levelState = updatedLevelState }
+                                    { model | levelState = updatedLevelState, animation = NoAnimation }
                             in
                             handleMovementAbility stepsLeft updatedModel
 
@@ -360,7 +366,7 @@ handleTwiceClickedCard model cardNumber =
                 Ok newLevel ->
                     let
                         finishedLevelState =
-                            { oldLevelState | clickedCard = Nothing, level = newLevel, gameMode = CardAction firstAbility }
+                            { oldLevelState | maybeClickedCard = Nothing, level = newLevel, gameMode = CardAction firstAbility }
                     in
                     ( OkModel { model | levelState = finishedLevelState, cardState = newCardState }, Cmd.none )
 
@@ -370,7 +376,7 @@ handleTwiceClickedCard model cardNumber =
 
 addClickedCardNumberToModel : Int -> Model -> Model
 addClickedCardNumberToModel number model =
-    updateLevelState model (\state -> { state | clickedCard = Just number })
+    updateLevelState model (\state -> { state | maybeClickedCard = Just number })
 
 
 updateLevelState : Model -> (LevelState -> LevelState) -> Model

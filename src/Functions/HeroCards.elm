@@ -14,7 +14,7 @@ activateDoubleClickedCard cardNumber heroCards =
         emptyResultTuple =
             Ok ( [], emptyHeroCard, emptyAbility )
     in
-    List.foldl (updateCardStateForActivatedCard cardNumber) emptyResultTuple heroCards
+    List.foldr (updateCardStateForActivatedCard cardNumber) emptyResultTuple heroCards
 
 
 updateCardStateForActivatedCard : Int -> HeroCard -> Result String ( List HeroCard, HeroCard, CardAbility ) -> Result String ( List HeroCard, HeroCard, CardAbility )

@@ -59,6 +59,30 @@ halfCellMargin =
 
 
 
+-- Door
+
+
+rectDoorWidth : Int
+rectDoorWidth =
+    roomPadding - (cellMargin * 2)
+
+
+rectDoorHeight : Int
+rectDoorHeight =
+    halfCellWidth
+
+
+polygonDoorWidth : Int
+polygonDoorWidth =
+    halfCellWidth
+
+
+polygonDoorHeight : Int
+polygonDoorHeight =
+    roomPadding - (cellMargin * 2)
+
+
+
 -- GridPolygons
 
 
