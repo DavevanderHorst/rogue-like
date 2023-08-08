@@ -2,7 +2,9 @@ module Functions.LevelState exposing (..)
 
 import Functions.DictFunctions.DoorDict exposing (addDoorToDoorDictUnSafe, getDoorFromDoorDict)
 import Functions.DictFunctions.RoomDict exposing (openGridCellDoorsForOpenedDoor)
-import Functions.Level exposing (removeHeroFromLevel, setHeroInLevel)
+import Functions.Door exposing (getOtherMapCoordinateFromDoor)
+import Functions.Level exposing (removeHeroFromLevel)
+import Functions.Movement exposing (setMovementInOpenedRoom)
 import Models.LevelState exposing (LevelState, MapCoordinate)
 
 
@@ -31,6 +33,7 @@ openDoorInLevelState doorNumber state =
     -- open the door in the door dict
     -- open room in both temp and normal room dict.
     -- both connected cells from the door need to be opened also
+    -- open door is only possible when we are in Move state, so we need to set movement in new room.
     let
         oldLevel =
             state.level
@@ -64,7 +67,7 @@ openDoorInLevelState doorNumber state =
                     in
                     case oldLevel.tempUpdatedRooms of
                         Nothing ->
-                            Ok { state | level = updatedLevel }
+                            Err "No temp rooms, not possible, doors opening can only be in movement"
 
                         Just tempRooms ->
                             let
@@ -77,7 +80,19 @@ openDoorInLevelState doorNumber state =
 
                                 Ok newTempRoomDict ->
                                     let
-                                        newLevel =
-                                            { updatedLevel | tempUpdatedRooms = Just newTempRoomDict }
+                                        newMapCoordinate =
+                                            getOtherMapCoordinateFromDoor state.heroSpot.roomNumber openedDoor
+
+                                        finishedTempRoomDictResult =
+                                            setMovementInOpenedRoom newMapCoordinate state.gameMode newTempRoomDict
                                     in
-                                    Ok { state | level = newLevel }
+                                    case finishedTempRoomDictResult of
+                                        Err err ->
+                                            Err err
+
+                                        Ok finishedTempRoomDict ->
+                                            let
+                                                newLevel =
+                                                    { updatedLevel | tempUpdatedRooms = Just finishedTempRoomDict }
+                                            in
+                                            Ok { state | level = newLevel }

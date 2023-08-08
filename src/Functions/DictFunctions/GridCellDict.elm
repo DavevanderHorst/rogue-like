@@ -71,6 +71,25 @@ updateGridCellDict roomCoordinate function gridCellDict =
     Dict.update (createGridCellDictKey roomCoordinate) function gridCellDict
 
 
+trySetMovementInGridCellForGridCells : Int -> RoomCoordinate -> Dict String GridCell -> ( Bool, Dict String GridCell )
+trySetMovementInGridCellForGridCells movement spot gridCellDict =
+    let
+        gridCellResult =
+            getGridCellFromGridCellDict spot gridCellDict
+    in
+    case gridCellResult of
+        Err _ ->
+            ( False, gridCellDict )
+
+        Ok gridCell ->
+            case gridCell.cellState of
+                Empty ->
+                    ( True, updateGridCellDict spot (setEmptyToCanBeMovedTo movement) gridCellDict )
+
+                _ ->
+                    ( False, gridCellDict )
+
+
 setCellStateToHero : Maybe GridCell -> Maybe GridCell
 setCellStateToHero =
     Maybe.map

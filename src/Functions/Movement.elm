@@ -3,32 +3,88 @@ module Functions.Movement exposing (..)
 import Dict exposing (Dict)
 import Functions.Basic exposing (isEven)
 import Functions.Coordinates exposing (createMapCoordinateAlt, getNextCoordinate, goUp, goUpLeft)
-import Functions.DictFunctions.GridCellDict
-    exposing
-        ( getGridCellFromGridCellDict
-        , setEmptyToCanBeMovedToInGridCellDict
-        , setGridCellFromMovableToClickedUnsafe
-        , setGridCellFromMovableToIsPathUnSafe
-        )
-import Functions.DictFunctions.RoomDict exposing (getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
-import Models.LevelState exposing (CellState(..), GridCell, GridDirection(..), Level, MapCoordinate, Room, RoomCoordinate)
+import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, setEmptyToCanBeMovedToInGridCellDict, setGridCellFromMovableToClickedUnsafe, setGridCellFromMovableToIsPathUnSafe, trySetMovementInGridCellForGridCells)
+import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
+import Models.CardState exposing (CardAbility(..))
+import Models.LevelState exposing (CellState(..), GameMode(..), GridCell, GridDirection(..), Level, MapCoordinate, Room, RoomCoordinate)
 
 
 
 -- Set Movement
+-- TODO first set firstRoundMovement, then start circling around. This for new rooms
+
+
+setMovementInOpenedRoom : MapCoordinate -> GameMode -> Dict Int Room -> Result String (Dict Int Room)
+setMovementInOpenedRoom startCoordinate gameMode roomDict =
+    case gameMode of
+        CardAction cardAbility ->
+            case cardAbility of
+                Move movement ->
+                    -- movement is from heroSpot next to door in other room, so - 1
+                    if movement < 1 then
+                        Err ("Cant set movement in new room, movement = " ++ String.fromInt movement)
+
+                    else
+                        let
+                            getRoomResult =
+                                getRoomFromRoomDict startCoordinate.roomNumber roomDict
+                        in
+                        case getRoomResult of
+                            Err err ->
+                                Err err
+
+                            Ok room ->
+                                -- now we need to set start spot to movement, and check if it is empty.
+                                -- if empty and there is still movement left, then we can start setting cells around
+                                let
+                                    ( setMovementInGridCellSucceeded, gridCells ) =
+                                        trySetMovementInGridCellForGridCells 1 startCoordinate.roomCoordinate room.gridCells
+                                in
+                                if setMovementInGridCellSucceeded then
+                                    let
+                                        newGridCells =
+                                            if movement > 1 then
+                                                setCanBeMovedTooForOpenedRoom movement startCoordinate.roomCoordinate gridCells
+
+                                            else
+                                                gridCells
+
+                                        newRoom =
+                                            { room | gridCells = newGridCells }
+                                    in
+                                    Ok (addRoomToRoomDictUnSafe newRoom roomDict)
+
+                                else
+                                    Ok roomDict
+
+                Attack _ ->
+                    Err "Cant set movement in new room, cardAbility = Attack"
+
+        ChooseCard ->
+            Err "Cant set movement in new room, game mode = ChooseCard"
+
+
+setCanBeMovedTooForOpenedRoom : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setCanBeMovedTooForOpenedRoom steps heroSpot gridCells =
+    setCanBeMovedToo steps heroSpot gridCells 2
 
 
 setCanBeMovedTooForMovement : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
 setCanBeMovedTooForMovement steps heroSpot gridCells =
+    setCanBeMovedToo steps heroSpot gridCells 1
+
+
+setCanBeMovedToo : Int -> RoomCoordinate -> Dict String GridCell -> Int -> Dict String GridCell
+setCanBeMovedToo steps heroSpot gridCells firstRoundMovement =
     let
         startSpot =
             getGoAroundStartSpot heroSpot
     in
-    goAroundAndChangeCells steps 0 1 startSpot startSpot Right gridCells []
+    goAroundAndChangeCells steps 0 1 startSpot startSpot Right gridCells [] firstRoundMovement
 
 
-goAroundAndChangeCells : Int -> Int -> Int -> RoomCoordinate -> RoomCoordinate -> GridDirection -> Dict String GridCell -> List RoomCoordinate -> Dict String GridCell
-goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot currentDirection gridCellDict notYetSetCoordinates =
+goAroundAndChangeCells : Int -> Int -> Int -> RoomCoordinate -> RoomCoordinate -> GridDirection -> Dict String GridCell -> List RoomCoordinate -> Int -> Dict String GridCell
+goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot currentDirection gridCellDict notYetSetCoordinates movementForFirstRound =
     if currentDirection == UpRight && currentSteps == roundNumber then
         if roundNumber == totalRounds then
             -- we are done
@@ -44,7 +100,7 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
                 goAroundStartSpot =
                     getGoAroundStartSpot currentSpot
             in
-            goAroundAndChangeCells totalRounds 0 (roundNumber + 1) goAroundStartSpot endSpot Right gridCellDict notYetSetCoordinates
+            goAroundAndChangeCells totalRounds 0 (roundNumber + 1) goAroundStartSpot endSpot Right gridCellDict notYetSetCoordinates movementForFirstRound
 
     else
         let
@@ -57,16 +113,16 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
         case gridCellResult of
             Err _ ->
                 -- not existing cell number, so we continue
-                goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection gridCellDict notYetSetCoordinates
+                goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection gridCellDict notYetSetCoordinates movementForFirstRound
 
             Ok currentGridCell ->
                 -- cell exists so we change cell now, then continue
                 if roundNumber == 1 then
                     let
                         updatedDict =
-                            setEmptyToCanBeMovedToInGridCellDict 1 currentGridCell.mapCoordinate.roomCoordinate gridCellDict
+                            setEmptyToCanBeMovedToInGridCellDict movementForFirstRound currentGridCell.mapCoordinate.roomCoordinate gridCellDict
                     in
-                    goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection updatedDict notYetSetCoordinates
+                    goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection updatedDict notYetSetCoordinates movementForFirstRound
 
                 else
                     let
@@ -79,7 +135,7 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
                                 addedCoordinateToList =
                                     currentSpot :: notYetSetCoordinates
                             in
-                            goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection gridCellDict addedCoordinateToList
+                            goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection gridCellDict addedCoordinateToList movementForFirstRound
 
                         Just stepsToMove ->
                             let
@@ -93,7 +149,7 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
                                     else
                                         setEmptyToCanBeMovedToInGridCellDict thisCellSteps currentGridCell.mapCoordinate.roomCoordinate gridCellDict
                             in
-                            goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection updatedDict notYetSetCoordinates
+                            goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection updatedDict notYetSetCoordinates movementForFirstRound
 
 
 getGridCellStatsForNextRound : GridDirection -> Int -> Int -> RoomCoordinate -> ( RoomCoordinate, Int, GridDirection )
