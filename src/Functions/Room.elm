@@ -1,28 +1,24 @@
 module Functions.Room exposing (..)
 
-import Dict exposing (Dict)
-import Functions.DictFunctions.GridCellDict exposing (setHeroInGridCellDictUnSafe, setHeroToEmptyInGridCellDictUnSafe)
-import Functions.DictFunctions.RoomDict exposing (getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
-import Functions.Movement exposing (setCanBeMovedTooForMovement)
-import Models.LevelState exposing (MapCoordinate, Room, RoomCoordinate)
+import Functions.DictFunctions.GridCellDict exposing (setHeroInGridCellDictUnSafe, setHeroToEmptyInGridCellDictUnSafe, setShapeInGridCellDictUnSafe)
+import Models.LevelState exposing (MapCoordinate, Room, RoomCoordinate, RoomDoorDetails)
 
 
-updateRoomsForCanBeMovedTo : Dict Int Room -> Int -> MapCoordinate -> Result String (Dict Int Room)
-updateRoomsForCanBeMovedTo roomDict steps heroSpot =
-    let
-        getRoomResult =
-            getRoomFromRoomDict heroSpot.roomNumber roomDict
-    in
-    case getRoomResult of
-        Err err ->
-            Err err
+tryGetClosedDoorNumber : RoomCoordinate -> Room -> ( Bool, Int )
+tryGetClosedDoorNumber roomCoordinate room =
+    List.foldl (hasClosedDoor roomCoordinate) ( False, 0 ) room.roomDoors
 
-        Ok room ->
-            let
-                newGridCells =
-                    setCanBeMovedTooForMovement steps heroSpot.roomCoordinate room.gridCells
-            in
-            Ok (setGridCellsForRoomInRoomDictUnSafe heroSpot.roomNumber newGridCells roomDict)
+
+hasClosedDoor : RoomCoordinate -> RoomDoorDetails -> ( Bool, Int ) -> ( Bool, Int )
+hasClosedDoor roomCoordinate roomDoor ( hasDoor, doorNumber ) =
+    if hasDoor then
+        ( hasDoor, doorNumber )
+
+    else if roomDoor.roomCoordinate == roomCoordinate then
+        ( True, roomDoor.doorNumber )
+
+    else
+        ( hasDoor, doorNumber )
 
 
 removeHeroFromRoomUnsafe : RoomCoordinate -> Room -> Room
@@ -41,3 +37,12 @@ addHeroToRoomUnsafe heroSpot room =
             setHeroInGridCellDictUnSafe heroSpot room.gridCells
     in
     { room | gridCells = gridCellsWithHero }
+
+
+setShapeForGridCellInRoom : String -> RoomCoordinate -> Room -> Room
+setShapeForGridCellInRoom shape spot room =
+    let
+        gridCellsWithShape =
+            setShapeInGridCellDictUnSafe shape spot room.gridCells
+    in
+    { room | gridCells = gridCellsWithShape }

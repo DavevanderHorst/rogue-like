@@ -20,10 +20,11 @@ import Constants
         )
 import Dict exposing (Dict)
 import Functions.Basic exposing (isEven)
-import Functions.Coordinates exposing (createMapCoordinateAlt, isSameRoomCoordinate, makeMapCoordinateList)
+import Functions.Coordinates exposing (createMapCoordinateAlt, makeMapCoordinateList)
 import Functions.DictFunctions.GridCellDict exposing (addGridCellTooGridCellDictUnSafe, getGridCellFromGridCellDict)
 import Functions.DictFunctions.Level exposing (addMonstersAndRoomToLevelSafe)
 import Functions.DictFunctions.RoomDict exposing (getRoomFromRoomDict)
+import Functions.Room exposing (setShapeForGridCellInRoom)
 import Levels.LevelCreationModels exposing (DoorData, DoorDirection(..), FigureCreationType(..), MapCreationFigure)
 import Models.LevelState
     exposing
@@ -31,7 +32,6 @@ import Models.LevelState
         , Door
         , FigureType(..)
         , GridCell
-        , GridDoorDetails
         , Level
         , MapCoordinate
         , Measurements
@@ -39,6 +39,7 @@ import Models.LevelState
         , MonsterType(..)
         , Room
         , RoomCoordinate
+        , RoomDoorDetails
         )
 
 
@@ -47,17 +48,23 @@ emptyLevel =
     Level Dict.empty Nothing Nothing Dict.empty Dict.empty
 
 
-createStartRoomAndLevel : Int -> Int -> List MapCreationFigure -> Result String Level
-createStartRoomAndLevel columns rows figures =
+createBaseRoom : Int -> Int -> Int -> Bool -> Room
+createBaseRoom roomNumber columns rows isOpen =
     let
         roomMeasurements =
             createBaseMeasurementsForRoom columns rows
+    in
+    Room roomNumber columns rows roomMeasurements Dict.empty isOpen []
 
-        newRoom =
-            Room 1 columns rows roomMeasurements Dict.empty True
+
+createStartRoomAndLevel : Int -> Int -> List MapCreationFigure -> Result String Level
+createStartRoomAndLevel columns rows figures =
+    let
+        roomOne =
+            createBaseRoom 1 columns rows True
 
         readyRoomOne =
-            generateGridCellsForRoom newRoom
+            generateGridCellsForRoom roomOne
     in
     let
         createAndAddFiguresResult =
@@ -74,12 +81,6 @@ createStartRoomAndLevel columns rows figures =
 createRoom : Int -> Int -> Int -> List MapCreationFigure -> DoorData -> Level -> Result String Level
 createRoom roomNumber columns rows monsters doorData level =
     let
-        roomMeasurements =
-            createBaseMeasurementsForRoom columns rows
-
-        newRoom =
-            Room roomNumber columns rows roomMeasurements Dict.empty False
-
         getRoomFromLevelResult =
             getRoomFromRoomDict doorData.baseRoomNumber level.rooms
     in
@@ -89,16 +90,22 @@ createRoom roomNumber columns rows monsters doorData level =
 
         Ok baseRoom ->
             let
+                newRoom =
+                    createBaseRoom roomNumber columns rows False
+
+                newRoomMeasurements =
+                    newRoom.measurements
+
                 xyResult =
                     case doorData.baseRoomDoorDirection of
                         DoorRight ->
                             Ok ( baseRoom.measurements.startX + baseRoom.measurements.width, calculateBaseY doorData baseRoom )
 
                         DoorLeft ->
-                            Ok ( baseRoom.measurements.startX - roomMeasurements.width, calculateBaseY doorData baseRoom )
+                            Ok ( baseRoom.measurements.startX - newRoomMeasurements.width, calculateBaseY doorData baseRoom )
 
                         DoorUp ->
-                            Ok ( calculateBaseX doorData baseRoom, baseRoom.measurements.startY - roomMeasurements.height )
+                            Ok ( calculateBaseX doorData baseRoom, baseRoom.measurements.startY - newRoomMeasurements.height )
 
                         DoorDown ->
                             Ok ( calculateBaseX doorData baseRoom, baseRoom.measurements.startY + baseRoom.measurements.height )
@@ -110,7 +117,7 @@ createRoom roomNumber columns rows monsters doorData level =
                 Ok ( x, y ) ->
                     let
                         updatedMeasurements =
-                            { roomMeasurements | startX = x, startY = y }
+                            { newRoomMeasurements | startX = x, startY = y }
 
                         updatedRoom =
                             { newRoom | measurements = updatedMeasurements }
@@ -204,10 +211,13 @@ updateRoomsAndGenerateDoor doorData baseRoom connectedRoom doorNumber =
                                     (baseRoom.measurements.startX + baseRoom.measurements.width - halfRoomPadding + cellMargin)
                                     (calculateDoorY doorData baseRoom + halfRoomPadding + quarterCellWidth)
                                 )
+
+                        ( updatedBaseRoom, updatedConnectedRoom ) =
+                            updateRoomsWithDoor baseRoom connectedRoom rightDoor
                     in
                     Ok
-                        ( updateRoomWithGridCellDoor doorNumber baseRoom doorData.baseRoomDoorRoomCoordinate connectedRoomDoorMapCoordinate
-                        , updateRoomWithGridCellDoor doorNumber connectedRoom doorData.connectedRoomDoorRoomCoordinate baseRoomDoorMapCoordinate
+                        ( updatedBaseRoom
+                        , updatedConnectedRoom
                         , rightDoor
                         )
 
@@ -225,10 +235,13 @@ updateRoomsAndGenerateDoor doorData baseRoom connectedRoom doorNumber =
                                     (baseRoom.measurements.startX - halfRoomPadding + cellMargin)
                                     (calculateDoorY doorData baseRoom + halfRoomPadding + quarterCellWidth)
                                 )
+
+                        ( updatedBaseRoom, updatedConnectedRoom ) =
+                            updateRoomsWithDoor baseRoom connectedRoom leftDoor
                     in
                     Ok
-                        ( updateRoomWithGridCellDoor doorNumber baseRoom doorData.baseRoomDoorRoomCoordinate connectedRoomDoorMapCoordinate
-                        , updateRoomWithGridCellDoor doorNumber connectedRoom doorData.connectedRoomDoorRoomCoordinate baseRoomDoorMapCoordinate
+                        ( updatedBaseRoom
+                        , updatedConnectedRoom
                         , leftDoor
                         )
 
@@ -246,10 +259,13 @@ updateRoomsAndGenerateDoor doorData baseRoom connectedRoom doorNumber =
                                     (calculateBaseX doorData baseRoom + halfRoomPadding + quarterCellWidth)
                                     (baseRoom.measurements.startY - halfRoomPadding + cellMargin)
                                 )
+
+                        ( updatedBaseRoom, updatedConnectedRoom ) =
+                            updateRoomsWithDoorAndSetGridCellShape baseRoom connectedRoom upDoor DoorUp
                     in
                     Ok
-                        ( updateRoomWithGridCellDoorAndPolygonShape doorNumber baseRoom doorData.baseRoomDoorRoomCoordinate horizontalGridPolygonWithDoorUp connectedRoomDoorMapCoordinate
-                        , updateRoomWithGridCellDoorAndPolygonShape doorNumber connectedRoom doorData.connectedRoomDoorRoomCoordinate horizontalGridPolygonWithDoorDown baseRoomDoorMapCoordinate
+                        ( updatedBaseRoom
+                        , updatedConnectedRoom
                         , upDoor
                         )
 
@@ -273,48 +289,58 @@ updateRoomsAndGenerateDoor doorData baseRoom connectedRoom doorNumber =
                                         + oneEightCellWidth
                                     )
                                 )
+
+                        ( updatedBaseRoom, updatedConnectedRoom ) =
+                            updateRoomsWithDoorAndSetGridCellShape baseRoom connectedRoom downDoor DoorDown
                     in
                     Ok
-                        ( updateRoomWithGridCellDoorAndPolygonShape doorNumber baseRoom doorData.baseRoomDoorRoomCoordinate horizontalGridPolygonWithDoorDown connectedRoomDoorMapCoordinate
-                        , updateRoomWithGridCellDoorAndPolygonShape doorNumber connectedRoom doorData.connectedRoomDoorRoomCoordinate horizontalGridPolygonWithDoorUp baseRoomDoorMapCoordinate
+                        ( updatedBaseRoom
+                        , updatedConnectedRoom
                         , downDoor
                         )
 
 
-updateRoomWithGridCellDoor : Int -> Room -> RoomCoordinate -> MapCoordinate -> Room
-updateRoomWithGridCellDoor doorNumber room roomDoorMapCoordinate connectedMapCoordinate =
+updateRoomsWithDoorAndSetGridCellShape : Room -> Room -> Door -> DoorDirection -> ( Room, Room )
+updateRoomsWithDoorAndSetGridCellShape baseRoom connectedRoom door direction =
     let
-        updatedGridCells =
-            Dict.map (setGridCellDoor roomDoorMapCoordinate doorNumber Nothing connectedMapCoordinate) room.gridCells
+        ( baseShape, connectedShape ) =
+            if direction == DoorUp then
+                ( horizontalGridPolygonWithDoorUp, horizontalGridPolygonWithDoorDown )
+
+            else
+                ( horizontalGridPolygonWithDoorDown, horizontalGridPolygonWithDoorUp )
+
+        ( updatedBaseRoom, updatedConnectedRoom ) =
+            updateRoomsWithDoor baseRoom connectedRoom door
+
+        baseRoomWithShape =
+            setShapeForGridCellInRoom baseShape door.connectedMapCoordinateOne.roomCoordinate updatedBaseRoom
+
+        connectedRoomWithShape =
+            setShapeForGridCellInRoom connectedShape door.connectedMapCoordinateTwo.roomCoordinate updatedConnectedRoom
     in
-    { room | gridCells = updatedGridCells }
+    ( baseRoomWithShape, connectedRoomWithShape )
 
 
-updateRoomWithGridCellDoorAndPolygonShape : Int -> Room -> RoomCoordinate -> String -> MapCoordinate -> Room
-updateRoomWithGridCellDoorAndPolygonShape doorNumber room roomDoorMapCoordinate polygonShape connectedMapCoordinate =
+updateRoomsWithDoor : Room -> Room -> Door -> ( Room, Room )
+updateRoomsWithDoor baseRoom connectedRoom door =
     let
-        updatedGridCells =
-            Dict.map (setGridCellDoor roomDoorMapCoordinate doorNumber (Just polygonShape) connectedMapCoordinate) room.gridCells
+        updatedBaseRoom =
+            updateRoomWithDoor door.doorNumber baseRoom door.connectedMapCoordinateOne.roomCoordinate door.connectedMapCoordinateTwo
+
+        updatedConnectedRoom =
+            updateRoomWithDoor door.doorNumber connectedRoom door.connectedMapCoordinateTwo.roomCoordinate door.connectedMapCoordinateOne
     in
-    { room | gridCells = updatedGridCells }
+    ( updatedBaseRoom, updatedConnectedRoom )
 
 
-setGridCellDoor : RoomCoordinate -> Int -> Maybe String -> MapCoordinate -> String -> GridCell -> GridCell
-setGridCellDoor roomCoordinate doorNumber maybeShape connectedMapCoordinate _ value =
-    if isSameRoomCoordinate roomCoordinate value.mapCoordinate.roomCoordinate then
-        let
-            updatedGridCell =
-                { value | maybeGridDoorDetails = Just (GridDoorDetails doorNumber False connectedMapCoordinate) }
-        in
-        case maybeShape of
-            Nothing ->
-                updatedGridCell
-
-            Just shape ->
-                { updatedGridCell | polygonShape = shape }
-
-    else
-        value
+updateRoomWithDoor : Int -> Room -> RoomCoordinate -> MapCoordinate -> Room
+updateRoomWithDoor doorNumber room doorRoomCoordinate connectedMapCoordinate =
+    let
+        doorDetails =
+            RoomDoorDetails doorNumber False doorRoomCoordinate connectedMapCoordinate
+    in
+    { room | roomDoors = doorDetails :: room.roomDoors }
 
 
 calculateDoorY : DoorData -> Room -> Int
@@ -421,7 +447,6 @@ generateGridCell measurements mapCoordinate gridCellDict =
             , startY = gridY
             , mapCoordinate = mapCoordinate
             , polygonShape = horizontalGridPolygon
-            , maybeGridDoorDetails = Nothing
             , cellState = Empty
             }
     in

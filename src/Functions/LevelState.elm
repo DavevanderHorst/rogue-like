@@ -4,7 +4,7 @@ import Functions.DictFunctions.DoorDict exposing (addDoorToDoorDictUnSafe, getDo
 import Functions.DictFunctions.RoomDict exposing (openGridCellDoorsForOpenedDoor)
 import Functions.Door exposing (getOtherMapCoordinateFromDoor)
 import Functions.Level exposing (removeHeroFromLevel)
-import Functions.Movement exposing (setMovementInOpenedRoom)
+import Functions.Movement exposing (setCanBeMovedToForOpenedRoom)
 import Models.LevelState exposing (LevelState, MapCoordinate)
 
 
@@ -84,7 +84,7 @@ openDoorInLevelState doorNumber state =
                                             getOtherMapCoordinateFromDoor state.heroSpot.roomNumber openedDoor
 
                                         finishedTempRoomDictResult =
-                                            setMovementInOpenedRoom newMapCoordinate state.gameMode newTempRoomDict
+                                            setCanBeMovedToForOpenedRoom newMapCoordinate state.gameMode newTempRoomDict
                                     in
                                     case finishedTempRoomDictResult of
                                         Err err ->

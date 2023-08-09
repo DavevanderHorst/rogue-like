@@ -3,7 +3,8 @@ module Functions.Level exposing (..)
 import Dict exposing (Dict)
 import Functions.DictFunctions.GridCellDict exposing (setGridCellFromPartOfPathToCanBeMovedTo)
 import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
-import Functions.Room exposing (addHeroToRoomUnsafe, removeHeroFromRoomUnsafe, updateRoomsForCanBeMovedTo)
+import Functions.Movement exposing (setCanBeMovedToForMoveAbility)
+import Functions.Room exposing (addHeroToRoomUnsafe, removeHeroFromRoomUnsafe)
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (Level, MapCoordinate, Room, RoomCoordinate)
 
@@ -100,7 +101,7 @@ updateLevelForAbility ability heroSpot level =
             else
                 let
                     updatedRoomsResult =
-                        updateRoomsForCanBeMovedTo level.rooms steps heroSpot
+                        setCanBeMovedToForMoveAbility steps heroSpot level.rooms
                 in
                 case updatedRoomsResult of
                     Ok updatedRoomDict ->

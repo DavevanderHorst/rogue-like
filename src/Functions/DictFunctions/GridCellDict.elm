@@ -25,11 +25,6 @@ addGridCellTooGridCellDictUnSafe gridCell gridCellDict =
     Dict.insert (createGridCellDictKey gridCell.mapCoordinate.roomCoordinate) gridCell gridCellDict
 
 
-openGridCellDoorInGridCellDictUnSafe : RoomCoordinate -> Dict String GridCell -> Dict String GridCell
-openGridCellDoorInGridCellDictUnSafe roomCoordinate gridCellDict =
-    updateGridCellDict roomCoordinate openGridCellDoor gridCellDict
-
-
 setGridCellFromMovableToClickedUnsafe : RoomCoordinate -> Dict String GridCell -> Dict String GridCell
 setGridCellFromMovableToClickedUnsafe roomCoordinate gridCellDict =
     -- Unsafe, only use when your 100% sure cellState is CanBeMovedToo
@@ -40,6 +35,11 @@ setGridCellFromMovableToIsPathUnSafe : RoomCoordinate -> Dict String GridCell ->
 setGridCellFromMovableToIsPathUnSafe roomCoordinate gridCellDict =
     -- Unsafe, only use when your 100% sure cellState is CanBeMovedToo
     updateGridCellDict roomCoordinate setMovableToIsPath gridCellDict
+
+
+setShapeInGridCellDictUnSafe : String -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setShapeInGridCellDictUnSafe shape roomCoordinate gridCellDict =
+    updateGridCellDict roomCoordinate (setShape shape) gridCellDict
 
 
 setGridCellFromPartOfPathToCanBeMovedTo : RoomCoordinate -> Dict String GridCell -> Dict String GridCell
@@ -96,27 +96,16 @@ setCellStateToHero =
         (\old -> { old | cellState = FigureType Hero })
 
 
-openGridCellDoor : Maybe GridCell -> Maybe GridCell
-openGridCellDoor =
-    Maybe.map
-        (\old ->
-            case old.maybeGridDoorDetails of
-                Nothing ->
-                    old
-
-                Just door ->
-                    let
-                        newDoor =
-                            { door | doorIsOpen = True }
-                    in
-                    { old | maybeGridDoorDetails = Just newDoor }
-        )
-
-
 setCellStateToEmpty : Maybe GridCell -> Maybe GridCell
 setCellStateToEmpty =
     Maybe.map
         (\old -> { old | cellState = Empty })
+
+
+setShape : String -> Maybe GridCell -> Maybe GridCell
+setShape shape =
+    Maybe.map
+        (\old -> { old | polygonShape = shape })
 
 
 setMovableToClicked : Maybe GridCell -> Maybe GridCell

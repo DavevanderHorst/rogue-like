@@ -1,8 +1,8 @@
 module Functions.DictFunctions.RoomDict exposing (..)
 
 import Dict exposing (Dict)
-import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, getStepsFromGridCellForClickedCell, openGridCellDoorInGridCellDictUnSafe)
-import Models.LevelState exposing (Door, GridCell, Level, MapCoordinate, Room, RoomCoordinate)
+import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, getStepsFromGridCellForClickedCell)
+import Models.LevelState exposing (Door, GridCell, Level, MapCoordinate, Room, RoomCoordinate, RoomDoorDetails)
 
 
 getRoomFromRoomDict : Int -> Dict Int Room -> Result String Room
@@ -101,10 +101,19 @@ openGridCellDoor spot rooms =
 
         Ok room ->
             let
-                updatedGridCells =
-                    openGridCellDoorInGridCellDictUnSafe spot.roomCoordinate room.gridCells
+                updatedRoomDoors =
+                    List.map (openRoomDoor spot.roomCoordinate) room.roomDoors
 
                 updatedRoom =
-                    { room | gridCells = updatedGridCells, isOpen = True }
+                    { room | roomDoors = updatedRoomDoors, isOpen = True }
             in
             Ok (addRoomToRoomDictUnSafe updatedRoom rooms)
+
+
+openRoomDoor : RoomCoordinate -> RoomDoorDetails -> RoomDoorDetails
+openRoomDoor roomCoordinate roomDoor =
+    if roomDoor.roomCoordinate == roomCoordinate then
+        { roomDoor | doorIsOpen = True }
+
+    else
+        roomDoor

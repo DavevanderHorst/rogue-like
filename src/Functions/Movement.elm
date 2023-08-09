@@ -1,21 +1,20 @@
-module Functions.Movement exposing (..)
+module Functions.Movement exposing
+    ( makeMovementPathInTempRoomDictForLevel
+    , setCanBeMovedToForMoveAbility
+    , setCanBeMovedToForOpenedRoom
+    )
 
 import Dict exposing (Dict)
 import Functions.Basic exposing (isEven)
-import Functions.Coordinates exposing (createMapCoordinateAlt, getNextCoordinate, goUp, goUpLeft)
+import Functions.Coordinates exposing (createMapCoordinate, createMapCoordinateAlt, getNextCoordinate, goUp, goUpLeft, isSameRoomCoordinate)
 import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, setEmptyToCanBeMovedToInGridCellDict, setGridCellFromMovableToClickedUnsafe, setGridCellFromMovableToIsPathUnSafe, trySetMovementInGridCellForGridCells)
 import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
 import Models.CardState exposing (CardAbility(..))
-import Models.LevelState exposing (CellState(..), GameMode(..), GridCell, GridDirection(..), Level, MapCoordinate, Room, RoomCoordinate)
+import Models.LevelState exposing (CellState(..), FigureType(..), GameMode(..), GridCell, GridDirection(..), Level, MapCoordinate, Measurements, Room, RoomCoordinate, RoomDoorDetails)
 
 
-
--- Set Movement
--- TODO first set firstRoundMovement, then start circling around. This for new rooms
-
-
-setMovementInOpenedRoom : MapCoordinate -> GameMode -> Dict Int Room -> Result String (Dict Int Room)
-setMovementInOpenedRoom startCoordinate gameMode roomDict =
+setCanBeMovedToForOpenedRoom : MapCoordinate -> GameMode -> Dict Int Room -> Result String (Dict Int Room)
+setCanBeMovedToForOpenedRoom startCoordinate gameMode roomDict =
     case gameMode of
         CardAction cardAbility ->
             case cardAbility of
@@ -64,18 +63,133 @@ setMovementInOpenedRoom startCoordinate gameMode roomDict =
             Err "Cant set movement in new room, game mode = ChooseCard"
 
 
+setCanBeMovedToForMoveAbility : Int -> MapCoordinate -> Dict Int Room -> Result String (Dict Int Room)
+setCanBeMovedToForMoveAbility steps heroSpot roomDict =
+    let
+        getRoomResult =
+            getRoomFromRoomDict heroSpot.roomNumber roomDict
+    in
+    case getRoomResult of
+        Err err ->
+            Err err
+
+        Ok room ->
+            let
+                newGridCells =
+                    setCanBeMovedTooForMovement steps heroSpot.roomCoordinate room.gridCells
+
+                newRoomDict =
+                    setGridCellsForRoomInRoomDictUnSafe heroSpot.roomNumber newGridCells roomDict
+
+                otherRoomsToSetCanBeMovedToo =
+                    checkDoorsForMovement steps room.roomDoors newGridCells
+            in
+            if List.isEmpty otherRoomsToSetCanBeMovedToo then
+                Ok newRoomDict
+
+            else
+                List.foldl (setCanBeMovedToForOtherRooms steps [ heroSpot.roomNumber ]) (Ok newRoomDict) otherRoomsToSetCanBeMovedToo
+
+
+setCanBeMovedToForOtherRooms : Int -> List Int -> ( Int, MapCoordinate ) -> Result String (Dict Int Room) -> Result String (Dict Int Room)
+setCanBeMovedToForOtherRooms totalSteps doneRoomNumberList ( firstStep, mapCoordinate ) result =
+    case result of
+        Err _ ->
+            result
+
+        Ok roomDict ->
+            let
+                getRoomResult =
+                    getRoomFromRoomDict mapCoordinate.roomNumber roomDict
+            in
+            case getRoomResult of
+                Err err ->
+                    Err err
+
+                Ok room ->
+                    -- now we need to set start spot to movement, and check if it is empty.
+                    -- if empty and there is still movement left, then we can start setting cells around
+                    let
+                        ( setMovementInGridCellSucceeded, gridCells ) =
+                            trySetMovementInGridCellForGridCells firstStep mapCoordinate.roomCoordinate room.gridCells
+                    in
+                    if setMovementInGridCellSucceeded then
+                        let
+                            newGridCells =
+                                if firstStep < totalSteps then
+                                    setCanBeMovedTooForOtherRoom (firstStep + 1) totalSteps mapCoordinate.roomCoordinate gridCells
+
+                                else
+                                    gridCells
+
+                            newRoom =
+                                { room | gridCells = newGridCells }
+                        in
+                        Ok (addRoomToRoomDictUnSafe newRoom roomDict)
+
+                    else
+                        Ok roomDict
+
+
+checkDoorsForMovement : Int -> List RoomDoorDetails -> Dict String GridCell -> List ( Int, MapCoordinate )
+checkDoorsForMovement totalMovement roomDoors gridCells =
+    -- We check every door if its open and if it is in canBeMovedTo state and that there is movement left.
+    List.foldl (checkDoorForMovement totalMovement gridCells) [] roomDoors
+
+
+checkDoorForMovement : Int -> Dict String GridCell -> RoomDoorDetails -> List ( Int, MapCoordinate ) -> List ( Int, MapCoordinate )
+checkDoorForMovement totalMovement gridCells roomDoor result =
+    if not roomDoor.doorIsOpen then
+        result
+
+    else
+        let
+            getGridCellResult =
+                getGridCellFromGridCellDict roomDoor.roomCoordinate gridCells
+        in
+        case getGridCellResult of
+            Err _ ->
+                -- Should not be possible
+                result
+
+            Ok gridCell ->
+                case gridCell.cellState of
+                    CanBeMovedTo steps ->
+                        if totalMovement > steps then
+                            ( steps + 1, roomDoor.connectedMapCoordinate ) :: result
+
+                        else
+                            result
+
+                    FigureType figure ->
+                        case figure of
+                            Hero ->
+                                ( 1, roomDoor.connectedMapCoordinate ) :: result
+
+                            _ ->
+                                result
+
+                    _ ->
+                        result
+
+
 setCanBeMovedTooForOpenedRoom : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
-setCanBeMovedTooForOpenedRoom steps heroSpot gridCells =
-    setCanBeMovedToo steps heroSpot gridCells 2
+setCanBeMovedTooForOpenedRoom totalSteps heroSpot gridCells =
+    setCanBeMovedTo totalSteps heroSpot gridCells 2
+
+
+setCanBeMovedTooForOtherRoom : Int -> Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setCanBeMovedTooForOtherRoom startSteps totalSteps heroSpot gridCells =
+    setCanBeMovedTo totalSteps heroSpot gridCells startSteps
 
 
 setCanBeMovedTooForMovement : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
-setCanBeMovedTooForMovement steps heroSpot gridCells =
-    setCanBeMovedToo steps heroSpot gridCells 1
+setCanBeMovedTooForMovement totalSteps heroSpot gridCells =
+    setCanBeMovedTo totalSteps heroSpot gridCells 1
 
 
-setCanBeMovedToo : Int -> RoomCoordinate -> Dict String GridCell -> Int -> Dict String GridCell
-setCanBeMovedToo steps heroSpot gridCells firstRoundMovement =
+setCanBeMovedTo : Int -> RoomCoordinate -> Dict String GridCell -> Int -> Dict String GridCell
+setCanBeMovedTo steps heroSpot gridCells firstRoundMovement =
     let
         startSpot =
             getGoAroundStartSpot heroSpot
@@ -277,26 +391,22 @@ makeMovementPathInTempRoomDictForLevel endCoordinate level =
                             setGridCellFromMovableToClickedUnsafe endCoordinate.roomCoordinate activeRoom.gridCells
 
                         gridCellsWithMovePathResult =
-                            makeMovementPath endCoordinate updatedGridCells
+                            makeMovementPath endCoordinate updatedGridCells activeRoom.roomDoors tempRooms
                     in
                     case gridCellsWithMovePathResult of
                         Err err ->
                             Err err
 
-                        Ok ( gridCellsWithMovePath, changedCellsList ) ->
-                            let
-                                updatedTempRooms =
-                                    setGridCellsForRoomInRoomDictUnSafe activeRoom.roomNumber gridCellsWithMovePath tempRooms
-                            in
+                        Ok ( updatedTempRoomDict, changedCellsList ) ->
                             Ok
                                 { level
-                                    | tempUpdatedRooms = Just updatedTempRooms
+                                    | tempUpdatedRooms = Just updatedTempRoomDict
                                     , changedMapCoordinatesForTempRooms = Just changedCellsList
                                 }
 
 
-makeMovementPath : MapCoordinate -> Dict String GridCell -> Result String ( Dict String GridCell, List MapCoordinate )
-makeMovementPath startSpot gridCellDict =
+makeMovementPath : MapCoordinate -> Dict String GridCell -> List RoomDoorDetails -> Dict Int Room -> Result String ( Dict Int Room, List MapCoordinate )
+makeMovementPath startSpot gridCellDict roomDoors roomDict =
     let
         maybeStartMovement =
             getMovementValue startSpot.roomCoordinate gridCellDict
@@ -306,67 +416,150 @@ makeMovementPath startSpot gridCellDict =
             Err "No start movement found for : makeMovementPath"
 
         Just movement ->
-            makeMovementPathRecursive movement startSpot gridCellDict [ startSpot ]
+            let
+                openDoors =
+                    keepOpenDoorsInList roomDoors
+            in
+            makeMovementPathRecursive movement startSpot gridCellDict [ startSpot ] openDoors roomDict
 
 
-makeMovementPathRecursive : Int -> MapCoordinate -> Dict String GridCell -> List MapCoordinate -> Result String ( Dict String GridCell, List MapCoordinate )
-makeMovementPathRecursive startMovement startSpot gridCellDict changedMapCoordinatesList =
+keepOpenDoorsInList : List RoomDoorDetails -> List RoomDoorDetails
+keepOpenDoorsInList doors =
+    List.filter (\roomDoor -> roomDoor.doorIsOpen == True) doors
+
+
+makeMovementPathRecursive : Int -> MapCoordinate -> Dict String GridCell -> List MapCoordinate -> List RoomDoorDetails -> Dict Int Room -> Result String ( Dict Int Room, List MapCoordinate )
+makeMovementPathRecursive startMovement startSpot gridCellDict changedMapCoordinatesList openDoors roomDict =
     let
         newMovement =
             startMovement - 1
     in
     if newMovement == 0 then
-        Ok ( gridCellDict, changedMapCoordinatesList )
+        Ok ( setGridCellsForRoomInRoomDictUnSafe startSpot.roomNumber gridCellDict roomDict, changedMapCoordinatesList )
 
     else
         let
-            goAroundStartSpot =
-                getGoAroundStartSpot startSpot.roomCoordinate
-
-            nextCoordinateResult =
-                findNextCoordinateForSettingMovePath goAroundStartSpot newMovement gridCellDict Right
+            ( hasOpenDoor, otherRoomMapCoordinate ) =
+                checkRoomCoordinateForOpenDoor startSpot.roomCoordinate openDoors
         in
-        case nextCoordinateResult of
-            Err err ->
-                Err err
+        if hasOpenDoor then
+            let
+                getOtherRoomResult =
+                    getRoomFromRoomDict otherRoomMapCoordinate.roomNumber roomDict
+            in
+            case getOtherRoomResult of
+                Err err ->
+                    Err err
 
-            Ok nextRoomCoordinate ->
-                let
-                    updatedGridCellDict =
-                        setGridCellFromMovableToIsPathUnSafe nextRoomCoordinate gridCellDict
+                Ok otherRoom ->
+                    let
+                        connectedRoomCoordinate =
+                            otherRoomMapCoordinate.roomCoordinate
 
-                    nextMapCoordinate =
-                        createMapCoordinateAlt startSpot.roomNumber nextRoomCoordinate
-                in
-                makeMovementPathRecursive newMovement nextMapCoordinate updatedGridCellDict (nextMapCoordinate :: changedMapCoordinatesList)
+                        connectedCoordinateSteps =
+                            getMovementValue connectedRoomCoordinate otherRoom.gridCells
+                    in
+                    if connectedCoordinateSteps == Just newMovement then
+                        let
+                            updatedGridCellDict =
+                                setGridCellFromMovableToIsPathUnSafe connectedRoomCoordinate otherRoom.gridCells
+
+                            updatedRoomDict =
+                                setGridCellsForRoomInRoomDictUnSafe startSpot.roomNumber gridCellDict roomDict
+
+                            newOpenDoors =
+                                keepOpenDoorsInList otherRoom.roomDoors
+                        in
+                        makeMovementPathRecursive newMovement otherRoomMapCoordinate updatedGridCellDict (otherRoomMapCoordinate :: changedMapCoordinatesList) newOpenDoors updatedRoomDict
+
+                    else
+                        let
+                            goAroundStartSpot =
+                                getGoAroundStartSpot startSpot.roomCoordinate
+
+                            nextCoordinateResult =
+                                findNextCoordinateForSettingMovePath goAroundStartSpot newMovement gridCellDict Right True
+                        in
+                        case nextCoordinateResult of
+                            Err err ->
+                                Err err
+
+                            Ok nextRoomCoordinate ->
+                                let
+                                    updatedGridCellDict =
+                                        setGridCellFromMovableToIsPathUnSafe nextRoomCoordinate gridCellDict
+
+                                    nextMapCoordinate =
+                                        createMapCoordinateAlt startSpot.roomNumber nextRoomCoordinate
+                                in
+                                makeMovementPathRecursive newMovement nextMapCoordinate updatedGridCellDict (nextMapCoordinate :: changedMapCoordinatesList) openDoors roomDict
+
+        else
+            let
+                goAroundStartSpot =
+                    getGoAroundStartSpot startSpot.roomCoordinate
+
+                nextCoordinateResult =
+                    findNextCoordinateForSettingMovePath goAroundStartSpot newMovement gridCellDict Right True
+            in
+            case nextCoordinateResult of
+                Err err ->
+                    Err err
+
+                Ok nextRoomCoordinate ->
+                    let
+                        updatedGridCellDict =
+                            setGridCellFromMovableToIsPathUnSafe nextRoomCoordinate gridCellDict
+
+                        nextMapCoordinate =
+                            createMapCoordinateAlt startSpot.roomNumber nextRoomCoordinate
+                    in
+                    makeMovementPathRecursive newMovement nextMapCoordinate updatedGridCellDict (nextMapCoordinate :: changedMapCoordinatesList) openDoors roomDict
 
 
-findNextCoordinateForSettingMovePath : RoomCoordinate -> Int -> Dict String GridCell -> GridDirection -> Result String RoomCoordinate
-findNextCoordinateForSettingMovePath currentSpot movement gridCellDict direction =
-    let
-        cellResult =
-            getGridCellFromGridCellDict currentSpot gridCellDict
+checkRoomCoordinateForOpenDoor : RoomCoordinate -> List RoomDoorDetails -> ( Bool, MapCoordinate )
+checkRoomCoordinateForOpenDoor spot doors =
+    List.foldl (checkCoordinateForOpenDoor spot) ( False, createMapCoordinate 0 0 0 ) doors
 
-        nextSpot =
-            getNextCoordinate direction currentSpot
 
-        nextDirection =
-            getNextDirection direction
-    in
-    case cellResult of
-        Err _ ->
-            if direction == UpRight then
-                Err "No cell found with needed movement to make path"
+checkCoordinateForOpenDoor : RoomCoordinate -> RoomDoorDetails -> ( Bool, MapCoordinate ) -> ( Bool, MapCoordinate )
+checkCoordinateForOpenDoor spot door result =
+    if Tuple.first result then
+        result
 
-            else
-                findNextCoordinateForSettingMovePath nextSpot movement gridCellDict nextDirection
+    else if isSameRoomCoordinate door.roomCoordinate spot then
+        ( True, door.connectedMapCoordinate )
 
-        Ok cell ->
-            if getMovementFromGridCell cell == Just movement then
-                Ok cell.mapCoordinate.roomCoordinate
+    else
+        result
 
-            else
-                findNextCoordinateForSettingMovePath nextSpot movement gridCellDict nextDirection
+
+findNextCoordinateForSettingMovePath : RoomCoordinate -> Int -> Dict String GridCell -> GridDirection -> Bool -> Result String RoomCoordinate
+findNextCoordinateForSettingMovePath currentSpot movement gridCellDict direction isStart =
+    if direction == Right && not isStart then
+        Err ("No cell found with needed movement to make path, " ++ String.fromInt movement)
+
+    else
+        let
+            cellResult =
+                getGridCellFromGridCellDict currentSpot gridCellDict
+
+            nextSpot =
+                getNextCoordinate direction currentSpot
+
+            nextDirection =
+                getNextDirection direction
+        in
+        case cellResult of
+            Err _ ->
+                findNextCoordinateForSettingMovePath nextSpot movement gridCellDict nextDirection False
+
+            Ok cell ->
+                if getMovementFromGridCell cell == Just movement then
+                    Ok cell.mapCoordinate.roomCoordinate
+
+                else
+                    findNextCoordinateForSettingMovePath nextSpot movement gridCellDict nextDirection False
 
 
 getMovementFromGridCell : GridCell -> Maybe Int
@@ -441,6 +634,7 @@ getMovementValue spot gridCellDict =
 
 getGoAroundStartSpot : RoomCoordinate -> RoomCoordinate
 getGoAroundStartSpot spot =
+    -- Start spot is always up left cell
     if isEven spot.rowNumber then
         goUp spot
 

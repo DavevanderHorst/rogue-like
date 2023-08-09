@@ -1,8 +1,9 @@
 module Views.MapButtons exposing (..)
 
 import FeatherIcons
-import Functions.DictFunctions.RoomDict exposing (getGridCellFromRoomDict)
-import Html exposing (Html, button, div)
+import Functions.DictFunctions.RoomDict exposing (getRoomFromRoomDict)
+import Functions.Room exposing (tryGetClosedDoorNumber)
+import Html exposing (Html, button, div, text)
 import Html.Attributes as Attr
 import Html.Events exposing (onClick)
 import Messages exposing (Msg(..))
@@ -13,83 +14,87 @@ import Models.LevelState exposing (GameMode(..), LevelState)
 
 buttonsView : LevelState -> AnimationType -> Float -> Html Msg
 buttonsView state animation mapWidth =
-    if animation /= NoAnimation then
-        div [] []
+    let
+        buttons =
+            if animation /= NoAnimation then
+                [ resetMapButton ]
 
-    else
-        let
-            ( skipButton, isMovement ) =
-                case state.gameMode of
-                    CardAction cardAbility ->
-                        case cardAbility of
-                            Move _ ->
-                                ( skipMovementButton True, True )
+            else
+                let
+                    ( skipButton, isMovement ) =
+                        case state.gameMode of
+                            CardAction cardAbility ->
+                                case cardAbility of
+                                    Move _ ->
+                                        ( skipMovementButton, True )
 
-                            Attack _ ->
-                                ( skipAttackButton True, False )
+                                    Attack _ ->
+                                        ( skipAttackButton, False )
 
-                    ChooseCard ->
-                        ( skipMovementButton False, False )
+                            ChooseCard ->
+                                ( noButton, False )
 
-            openDoorBut =
-                -- only when ability is move and there is a closed door
-                case getGridCellFromRoomDict state.heroSpot state.level.rooms of
-                    Err _ ->
-                        openDoorButton False 0
+                    openDoorBut =
+                        if isMovement then
+                            -- only when ability is move and there is a closed door
+                            case getRoomFromRoomDict state.heroSpot.roomNumber state.level.rooms of
+                                Err err ->
+                                    div [] [ text err ]
 
-                    Ok heroGridCell ->
-                        case heroGridCell.maybeGridDoorDetails of
-                            Nothing ->
-                                openDoorButton False 0
+                                Ok heroRoom ->
+                                    let
+                                        ( heroSpotHasClosedDoor, doorNumber ) =
+                                            tryGetClosedDoorNumber state.heroSpot.roomCoordinate heroRoom
+                                    in
+                                    if heroSpotHasClosedDoor then
+                                        openDoorButton doorNumber
 
-                            Just door ->
-                                if not door.doorIsOpen && isMovement then
-                                    openDoorButton True door.doorNumber
+                                    else
+                                        noButton
 
-                                else
-                                    openDoorButton False 0
-        in
-        div
-            [ Attr.style "position" "absolute"
-            , Attr.style "left" (String.fromFloat (mapWidth - 20) ++ "px")
-            , Attr.style "top" "0"
-            , Attr.style "display" "flex"
-            , Attr.style "flex-direction" "column"
-            ]
-            [ resetMapButton, skipButton, openDoorBut ]
+                        else
+                            noButton
+                in
+                [ resetMapButton, skipButton, openDoorBut ]
+    in
+    div
+        [ Attr.style "position" "absolute"
+        , Attr.style "left" (String.fromFloat (mapWidth - 20) ++ "px")
+        , Attr.style "top" "0"
+        , Attr.style "display" "flex"
+        , Attr.style "flex-direction" "column"
+        ]
+        buttons
 
 
-openDoorButton : Bool -> Int -> Html Msg
-openDoorButton isVisible number =
-    baseButton (OpenDoor number) (FeatherIcons.logIn |> FeatherIcons.toHtml []) isVisible
+noButton : Html Msg
+noButton =
+    div [] []
+
+
+openDoorButton : Int -> Html Msg
+openDoorButton number =
+    baseButton (OpenDoor number) (FeatherIcons.logIn |> FeatherIcons.toHtml [])
 
 
 resetMapButton : Html Msg
 resetMapButton =
-    baseButton ResetMap (FeatherIcons.maximize |> FeatherIcons.toHtml []) True
+    baseButton ResetMap (FeatherIcons.maximize |> FeatherIcons.toHtml [])
 
 
-skipMovementButton : Bool -> Html Msg
-skipMovementButton isVisible =
-    baseButton SkipMovement (FeatherIcons.fastForward |> FeatherIcons.toHtml []) isVisible
+skipMovementButton : Html Msg
+skipMovementButton =
+    baseButton SkipMovement (FeatherIcons.fastForward |> FeatherIcons.toHtml [])
 
 
-skipAttackButton : Bool -> Html Msg
-skipAttackButton isVisible =
-    baseButton SkipAttack (FeatherIcons.fastForward |> FeatherIcons.toHtml []) isVisible
+skipAttackButton : Html Msg
+skipAttackButton =
+    baseButton SkipAttack (FeatherIcons.fastForward |> FeatherIcons.toHtml [])
 
 
-baseButton : Msg -> Html Msg -> Bool -> Html Msg
-baseButton action buttonTxt isVisible =
-    let
-        buttonStyle =
-            if isVisible then
-                baseButtonStyle action
-
-            else
-                Attr.style "display" "none" :: baseButtonStyle action
-    in
-    button buttonStyle [ buttonTxt ]
+baseButton : Msg -> Html Msg -> Html Msg
+baseButton action buttonTxt =
+    button (baseButtonStyle action) [ buttonTxt ]
 
 
 baseButtonStyle action =

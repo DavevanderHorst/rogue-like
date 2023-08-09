@@ -29,6 +29,7 @@ type alias Room =
     , measurements : Measurements
     , gridCells : Dict String GridCell
     , isOpen : Bool
+    , roomDoors : List RoomDoorDetails
     }
 
 
@@ -46,14 +47,14 @@ type alias GridCell =
     , startY : Int
     , mapCoordinate : MapCoordinate
     , polygonShape : String
-    , maybeGridDoorDetails : Maybe GridDoorDetails
     , cellState : CellState
     }
 
 
-type alias GridDoorDetails =
+type alias RoomDoorDetails =
     { doorNumber : Int
     , doorIsOpen : Bool
+    , roomCoordinate : RoomCoordinate
     , connectedMapCoordinate : MapCoordinate
     }
 
