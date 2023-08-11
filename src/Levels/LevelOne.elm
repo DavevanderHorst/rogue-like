@@ -22,23 +22,41 @@ levelOneResult : Result String Level
 levelOneResult =
     let
         createStartRoomResult =
-            createStartRoomAndLevel 6 4 roomOneFigures
+            createStartRoomAndLevel 6 5 roomOneFigures
     in
     case createStartRoomResult of
         Ok levelWithOneRoom ->
             let
-                nextRoomNumber =
+                roomNumberTwo =
                     2
 
                 connectedRoomOneAndTwo =
                     { baseRoomNumber = 1
-                    , baseRoomDoorRoomCoordinate = RoomCoordinate 6 1
-                    , baseRoomDoorDirection = DoorRight
-                    , connectedRoomDoorRoomCoordinate = RoomCoordinate 1 7
+                    , baseRoomDoorRoomCoordinate = RoomCoordinate 1 5
+                    , baseRoomDoorDirection = DoorDown
+                    , connectedRoomDoorRoomCoordinate = RoomCoordinate 3 1
                     }
             in
-            createRoom nextRoomNumber 3 7 [] connectedRoomOneAndTwo levelWithOneRoom
+            -- createRoomTwoResult =
+            createRoom roomNumberTwo 3 7 roomTwoFigures connectedRoomOneAndTwo levelWithOneRoom
 
+        --case createRoomTwoResult of
+        --    Err err ->
+        --        Err err
+        --
+        --    Ok levelWithTwoRooms ->
+        --        let
+        --            roomNumberThree =
+        --                3
+        --
+        --            connectedRoomOneAndThree =
+        --                { baseRoomNumber = 1
+        --                , baseRoomDoorRoomCoordinate = RoomCoordinate 3 1
+        --                , baseRoomDoorDirection = DoorUp
+        --                , connectedRoomDoorRoomCoordinate = RoomCoordinate 3 5
+        --                }
+        --        in
+        --        createRoom roomNumberThree 6 5 [] connectedRoomOneAndThree levelWithTwoRooms
         Err err ->
             Err err
 
@@ -54,6 +72,14 @@ roomOneFigures =
       }
     , { figureType = DummyFigure
       , roomCoordinate = RoomCoordinate 4 2
+      }
+    ]
+
+
+roomTwoFigures : List MapCreationFigure
+roomTwoFigures =
+    [ { figureType = DummyFigure
+      , roomCoordinate = RoomCoordinate 2 4
       }
     ]
 

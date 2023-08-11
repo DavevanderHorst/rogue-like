@@ -10,7 +10,6 @@ import Constants
         , horizontalGridPolygon
         , horizontalGridPolygonWithDoorDown
         , horizontalGridPolygonWithDoorUp
-        , oneEightCellWidth
         , polygonDoorHeight
         , polygonDoorWidth
         , quarterCellWidth
@@ -91,7 +90,7 @@ createRoom roomNumber columns rows monsters doorData level =
         Ok baseRoom ->
             let
                 newRoom =
-                    createBaseRoom roomNumber columns rows False
+                    createBaseRoom roomNumber columns rows True
 
                 newRoomMeasurements =
                     newRoom.measurements
@@ -209,7 +208,7 @@ updateRoomsAndGenerateDoor doorData baseRoom connectedRoom doorNumber =
                                     rectDoorWidth
                                     rectDoorHeight
                                     (baseRoom.measurements.startX + baseRoom.measurements.width - halfRoomPadding + cellMargin)
-                                    (calculateDoorY doorData baseRoom + halfRoomPadding + quarterCellWidth)
+                                    (calculateDoorY doorData connectedRoom.measurements.startY + halfRoomPadding + quarterCellWidth)
                                 )
 
                         ( updatedBaseRoom, updatedConnectedRoom ) =
@@ -233,7 +232,7 @@ updateRoomsAndGenerateDoor doorData baseRoom connectedRoom doorNumber =
                                     rectDoorWidth
                                     rectDoorHeight
                                     (baseRoom.measurements.startX - halfRoomPadding + cellMargin)
-                                    (calculateDoorY doorData baseRoom + halfRoomPadding + quarterCellWidth)
+                                    (calculateDoorY doorData connectedRoom.measurements.startY + halfRoomPadding + quarterCellWidth)
                                 )
 
                         ( updatedBaseRoom, updatedConnectedRoom ) =
@@ -256,7 +255,7 @@ updateRoomsAndGenerateDoor doorData baseRoom connectedRoom doorNumber =
                                 (Measurements
                                     polygonDoorWidth
                                     polygonDoorHeight
-                                    (calculateBaseX doorData baseRoom + halfRoomPadding + quarterCellWidth)
+                                    (calculateDoorX doorData connectedRoom.measurements.startX + halfRoomPadding + quarterCellWidth)
                                     (baseRoom.measurements.startY - halfRoomPadding + cellMargin)
                                 )
 
@@ -280,13 +279,11 @@ updateRoomsAndGenerateDoor doorData baseRoom connectedRoom doorNumber =
                                 (Measurements
                                     polygonDoorWidth
                                     polygonDoorHeight
-                                    (calculateBaseX doorData baseRoom + halfRoomPadding + quarterCellWidth)
+                                    (calculateDoorX doorData connectedRoom.measurements.startX + halfRoomPadding + quarterCellWidth)
                                     (baseRoom.measurements.startY
                                         + baseRoom.measurements.height
                                         - halfRoomPadding
-                                        - quarterCellWidth
                                         + cellMargin
-                                        + oneEightCellWidth
                                     )
                                 )
 
@@ -343,16 +340,22 @@ updateRoomWithDoor doorNumber room doorRoomCoordinate connectedMapCoordinate =
     { room | roomDoors = doorDetails :: room.roomDoors }
 
 
-calculateDoorY : DoorData -> Room -> Int
-calculateDoorY doorData baseRoom =
+calculateDoorY : DoorData -> Int -> Int
+calculateDoorY doorData startY =
     let
-        baseY =
-            calculateBaseY doorData baseRoom
-
         heightPerRow =
             cellWidth - quarterCellWidth + cellMargin
     in
-    baseY + (heightPerRow * (doorData.connectedRoomDoorRoomCoordinate.rowNumber - 1))
+    startY + (heightPerRow * (doorData.connectedRoomDoorRoomCoordinate.rowNumber - 1))
+
+
+calculateDoorX : DoorData -> Int -> Int
+calculateDoorX doorData startX =
+    let
+        widthPerColumn =
+            cellWidth + cellMargin
+    in
+    startX + (widthPerColumn * (doorData.connectedRoomDoorRoomCoordinate.columnNumber - 1))
 
 
 calculateBaseX : DoorData -> Room -> Int
