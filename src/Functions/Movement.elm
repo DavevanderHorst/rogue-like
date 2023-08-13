@@ -348,7 +348,7 @@ setCanBeJumpedToForOtherRooms totalSteps ( firstStep, mapCoordinate ) result =
 
 setCanBeJumpedToForOpenedRoom : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
 setCanBeJumpedToForOpenedRoom totalDistance startSpot gridCellDict =
-    setCanBeJumpedTo totalDistance startSpot gridCellDict 2
+    setCanBeJumpedTo (totalDistance - 1) startSpot gridCellDict 2
 
 
 setCanBeJumpedToForOtherRoom : Int -> Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell

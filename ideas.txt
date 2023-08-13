@@ -11,4 +11,24 @@ item cards can have a 1 time use.
 
 Each round you get 4 cards, from which you can use 2. All cards go to your used cards pile
 
-switching weapons, costs a choosen card. weapon cards will be removed, new weapon cards will be put into discarded pile
+switching weapons, costs a chosen card. weapon cards will be removed, new weapon cards will be put into discarded pile
+
+-------------------
+
+1 round you get 3-4 cards, 1 free (move 2) card and 1 free attack 2 card. So you always have a move and an attack.
+
+If you pass and did not use any of free cards, you have to discard one.
+
+Pass twice in a row, means round end for player.
+
+--
+
+Cards  come from your items, boots / pants give move cards
+
+Boots can also give attack (kick)
+
+armor helm give defence cards
+
+shield gives defence and attack cards
+
+sword give attack cards
