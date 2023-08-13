@@ -34,7 +34,7 @@ setGridCellFromMovableToClickedUnsafe roomCoordinate gridCellDict =
 setGridCellFromMovableToIsPathUnSafe : RoomCoordinate -> Dict String GridCell -> Dict String GridCell
 setGridCellFromMovableToIsPathUnSafe roomCoordinate gridCellDict =
     -- Unsafe, only use when your 100% sure cellState is CanBeMovedToo
-    updateGridCellDict roomCoordinate setMovableToIsPath gridCellDict
+    updateGridCellDict roomCoordinate setCanBeMovedToToIsPath gridCellDict
 
 
 setShapeInGridCellDictUnSafe : String -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
@@ -64,6 +64,11 @@ setHeroInGridCellDictUnSafe roomCoordinate gridCellDict =
 setEmptyToCanBeMovedToInGridCellDict : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
 setEmptyToCanBeMovedToInGridCellDict moves roomCoordinate gridCellDict =
     updateGridCellDict roomCoordinate (setEmptyToCanBeMovedTo moves) gridCellDict
+
+
+setEmptyToCanBeJumpedToInGridCellDict : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setEmptyToCanBeJumpedToInGridCellDict distance roomCoordinate gridCellDict =
+    updateGridCellDict roomCoordinate (setEmptyToCanBeJumpedTo distance) gridCellDict
 
 
 updateGridCellDict : RoomCoordinate -> (Maybe GridCell -> Maybe GridCell) -> Dict String GridCell -> Dict String GridCell
@@ -127,6 +132,9 @@ setMovableToClicked =
 
                 IsPartOfMovePath _ ->
                     old
+
+                CanBeJumpedTo moves ->
+                    { old | cellState = ClickedForMovement moves }
         )
 
 
@@ -150,6 +158,9 @@ setPathToIsMovable =
 
                 IsPartOfMovePath moves ->
                     { old | cellState = CanBeMovedTo moves }
+
+                CanBeJumpedTo _ ->
+                    old
         )
 
 
@@ -172,11 +183,39 @@ setEmptyToCanBeMovedTo moves =
 
                 IsPartOfMovePath _ ->
                     old
+
+                CanBeJumpedTo _ ->
+                    old
         )
 
 
-setMovableToIsPath : Maybe GridCell -> Maybe GridCell
-setMovableToIsPath =
+setEmptyToCanBeJumpedTo : Int -> Maybe GridCell -> Maybe GridCell
+setEmptyToCanBeJumpedTo distance =
+    Maybe.map
+        (\old ->
+            case old.cellState of
+                Empty ->
+                    { old | cellState = CanBeJumpedTo distance }
+
+                FigureType _ ->
+                    old
+
+                ClickedForMovement _ ->
+                    old
+
+                CanBeMovedTo _ ->
+                    old
+
+                IsPartOfMovePath _ ->
+                    old
+
+                CanBeJumpedTo _ ->
+                    old
+        )
+
+
+setCanBeMovedToToIsPath : Maybe GridCell -> Maybe GridCell
+setCanBeMovedToToIsPath =
     Maybe.map
         (\old ->
             case old.cellState of
@@ -193,6 +232,9 @@ setMovableToIsPath =
                     { old | cellState = IsPartOfMovePath moves }
 
                 IsPartOfMovePath _ ->
+                    old
+
+                CanBeJumpedTo _ ->
                     old
         )
 
@@ -219,6 +261,9 @@ cellStateToString cellState =
 
         IsPartOfMovePath int ->
             "IsPartOfMovePath" ++ String.fromInt int
+
+        CanBeJumpedTo int ->
+            "CanBeJumpedTo" ++ String.fromInt int
 
 
 figureTypeToString : FigureType -> String
@@ -258,6 +303,9 @@ getStepsFromGridCellForClickedCell spot gridCells =
                     Err (wrongStateError gridCell.cellState)
 
                 IsPartOfMovePath _ ->
+                    Err (wrongStateError gridCell.cellState)
+
+                CanBeJumpedTo _ ->
                     Err (wrongStateError gridCell.cellState)
 
 

@@ -1,9 +1,49 @@
 module Functions.Animations exposing (..)
 
 import Dict exposing (Dict)
+import Functions.Basic exposing (makePointBetweenPoints)
 import Functions.DictFunctions.RoomDict exposing (getGridCellFromRoomDict)
 import Models.BaseModel exposing (AnimationType(..))
 import Models.LevelState exposing (GridCell, MapCoordinate, Room, RoomCoordinate)
+import Models.Others exposing (Point)
+
+
+makeJumpAnimation : MapCoordinate -> MapCoordinate -> Dict Int Room -> Result String AnimationType
+makeJumpAnimation start end roomDict =
+    let
+        startGridCellResult =
+            getGridCellFromRoomDict start roomDict
+    in
+    case startGridCellResult of
+        Err err ->
+            Err err
+
+        Ok startGridCell ->
+            let
+                endGridCellResult =
+                    getGridCellFromRoomDict end roomDict
+            in
+            case endGridCellResult of
+                Err err ->
+                    Err err
+
+                Ok endGridCell ->
+                    let
+                        startPoint =
+                            makePointFromGridCell startGridCell
+
+                        endPoint =
+                            makePointFromGridCell endGridCell
+
+                        middlePoint =
+                            makePointBetweenPoints startPoint endPoint
+                    in
+                    Ok (AnimationJump startPoint middlePoint endPoint)
+
+
+makePointFromGridCell : GridCell -> Point
+makePointFromGridCell gridCell =
+    { x = toFloat gridCell.startX, y = toFloat gridCell.startY }
 
 
 makeMoveAnimation : MapCoordinate -> List MapCoordinate -> Dict Int Room -> Result String AnimationType
@@ -23,28 +63,28 @@ makeMoveAnimation heroSpot restOfPath roomDict =
             Ok heroGridCell ->
                 let
                     gridCellListResult =
-                        makeGridCellList restOfPath roomDict
+                        makePointList restOfPath roomDict
                 in
                 case gridCellListResult of
                     Err err ->
                         Err err
 
-                    Ok gridCellList ->
-                        Ok (Walk heroGridCell gridCellList)
+                    Ok pointList ->
+                        Ok (AnimationMove (makePointFromGridCell heroGridCell) pointList)
 
 
-makeGridCellList : List MapCoordinate -> Dict Int Room -> Result String (List GridCell)
-makeGridCellList coordinatesList roomDict =
-    List.foldr (getAndAddGridCell roomDict) (Ok []) coordinatesList
+makePointList : List MapCoordinate -> Dict Int Room -> Result String (List Point)
+makePointList coordinatesList roomDict =
+    List.foldr (getGridCellAndMakePoint roomDict) (Ok []) coordinatesList
 
 
-getAndAddGridCell : Dict Int Room -> MapCoordinate -> Result String (List GridCell) -> Result String (List GridCell)
-getAndAddGridCell roomDict spot result =
+getGridCellAndMakePoint : Dict Int Room -> MapCoordinate -> Result String (List Point) -> Result String (List Point)
+getGridCellAndMakePoint roomDict spot result =
     case result of
         Err err ->
             Err err
 
-        Ok gridCellList ->
+        Ok pointList ->
             let
                 getGridCellResult =
                     getGridCellFromRoomDict spot roomDict
@@ -54,4 +94,4 @@ getAndAddGridCell roomDict spot result =
                     Err err
 
                 Ok gridCell ->
-                    Ok (gridCell :: gridCellList)
+                    Ok (makePointFromGridCell gridCell :: pointList)

@@ -1,7 +1,7 @@
 module Views.MapView exposing (..)
 
 import Colors exposing (blackColorString, canBeClickedColorString, closedDoorColor, isClickedColorString, isPartOfMovePathColorString, openDoorColor, whiteColorString)
-import Constants exposing (cellWidthString, moveAnimationDuration)
+import Constants exposing (cellWidthString, horizontalGridPolygon, moveAnimationDuration)
 import Dict
 import Draggable
 import Html exposing (div, text)
@@ -13,6 +13,7 @@ import Messages exposing (Msg(..))
 import Models.BaseModel exposing (AnimationType(..), Model, Size)
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (CellState(..), Door, FigureType(..), GameMode(..), GridCell, LevelState, MonsterType(..), Room)
+import Models.Others exposing (Point)
 import Simple.Animation as Animation exposing (Animation, Step)
 import Simple.Animation.Animated as Animated
 import Simple.Animation.Property as P
@@ -79,26 +80,40 @@ handleAnimation animation =
         NoAnimation ->
             Svg.g [] []
 
-        Walk startGridCell rest ->
-            animatedG (hover startGridCell rest) [] [ renderHeroGridCell startGridCell False ]
+        AnimationMove startPoint rest ->
+            animatedG (moveAnimation startPoint rest) [] [ renderHeroCell ]
+
+        AnimationJump start middle end ->
+            animatedG (jumpAnimation start middle end) [] [ renderHeroCell ]
 
 
 
 -- Svg Animated Helpers
 
 
-hover : GridCell -> List GridCell -> Animation
-hover start rest =
+jumpAnimation : Point -> Point -> Point -> Animation
+jumpAnimation start middle end =
     Animation.steps
-        { startAt = [ P.x (toFloat start.startX), P.y (toFloat start.startY) ]
+        { startAt = [ P.x start.x, P.y start.y ]
+        , options = []
+        }
+        [ Animation.step 1000 [ P.x middle.x, P.y middle.y, P.scale 2 ]
+        , Animation.step 1000 [ P.x end.x, P.y end.y ]
+        ]
+
+
+moveAnimation : Point -> List Point -> Animation
+moveAnimation start rest =
+    Animation.steps
+        { startAt = [ P.x start.x, P.y start.y ]
         , options = []
         }
         (List.map makeAnimationStep rest)
 
 
-makeAnimationStep : GridCell -> Step
-makeAnimationStep cell =
-    Animation.step moveAnimationDuration [ P.x (toFloat cell.startX), P.y (toFloat cell.startY) ]
+makeAnimationStep : Point -> Step
+makeAnimationStep point =
+    Animation.step moveAnimationDuration [ P.x point.x, P.y point.y ]
 
 
 animatedG : Animation -> List (Svg.Attribute msg) -> List (Svg msg) -> Svg msg
@@ -215,7 +230,7 @@ renderGridCell _ value svgList =
         FigureType figureType ->
             case figureType of
                 Hero ->
-                    renderHeroGridCell value True :: svgList
+                    renderHeroGridCell value :: svgList
 
                 Monster monsterType _ ->
                     case monsterType of
@@ -240,6 +255,13 @@ renderGridCell _ value svgList =
             in
             clickableRect :: svgList
 
+        CanBeJumpedTo distance ->
+            let
+                clickableRect =
+                    createClickableRect canBeClickedColorString value distance
+            in
+            clickableRect :: svgList
+
         IsPartOfMovePath steps ->
             let
                 clickableRect =
@@ -248,18 +270,20 @@ renderGridCell _ value svgList =
             clickableRect :: svgList
 
 
-renderHeroGridCell : GridCell -> Bool -> Svg Msg
-renderHeroGridCell gridCell withPlacement =
+renderHeroCell : Svg Msg
+renderHeroCell =
     let
-        baseAttributes =
-            if withPlacement then
-                baseGridCellAttributes
-
-            else
-                baseGridCellAttributesWithoutPlacement
-
         attributes =
-            SvgAttr.xlinkHref "Images/swordsman.png" :: baseAttributes gridCell
+            SvgAttr.xlinkHref "Images/swordsman.png" :: heroCellAttributes
+    in
+    Svg.image attributes []
+
+
+renderHeroGridCell : GridCell -> Svg Msg
+renderHeroGridCell gridCell =
+    let
+        attributes =
+            SvgAttr.xlinkHref "Images/swordsman.png" :: baseGridCellAttributes gridCell
     in
     Svg.image attributes []
 
@@ -277,14 +301,17 @@ createClickableRect color cell steps =
 
 baseGridCellAttributes : GridCell -> List (Attribute msg)
 baseGridCellAttributes gridCell =
-    svgAttrInt SvgAttr.x gridCell.startX
-        :: svgAttrInt SvgAttr.y gridCell.startY
-        :: baseGridCellAttributesWithoutPlacement gridCell
-
-
-baseGridCellAttributesWithoutPlacement : GridCell -> List (Attribute msg)
-baseGridCellAttributesWithoutPlacement gridCell =
     [ SvgAttr.clipPath gridCell.polygonShape
+    , SvgAttr.width cellWidthString
+    , SvgAttr.height cellWidthString
+    , svgAttrInt SvgAttr.y gridCell.startY
+    , svgAttrInt SvgAttr.x gridCell.startX
+    ]
+
+
+heroCellAttributes : List (Attribute msg)
+heroCellAttributes =
+    [ SvgAttr.clipPath horizontalGridPolygon
     , SvgAttr.width cellWidthString
     , SvgAttr.height cellWidthString
     ]
@@ -334,6 +361,9 @@ makeMapText mode =
             case ability of
                 Move int ->
                     "Move " ++ String.fromInt int
+
+                Jump int ->
+                    "Jump " ++ String.fromInt int
 
                 Attack int ->
                     "Attack " ++ String.fromInt int

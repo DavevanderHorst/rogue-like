@@ -28,6 +28,9 @@ buttonsView state animation mapWidth =
                                     Move _ ->
                                         ( skipMovementButton, True )
 
+                                    Jump _ ->
+                                        ( skipMovementButton, True )
+
                                     Attack _ ->
                                         ( skipAttackButton, False )
 

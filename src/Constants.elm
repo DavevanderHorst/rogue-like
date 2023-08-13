@@ -158,3 +158,8 @@ cardRowHeight =
 moveAnimationDuration : Int
 moveAnimationDuration =
     500
+
+
+jumpAnimationDuration : Int
+jumpAnimationDuration =
+    500

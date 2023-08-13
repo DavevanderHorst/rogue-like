@@ -18,4 +18,4 @@ type Msg
     | SkipMovement
     | SkipAttack
     | OpenDoor Int
-    | MoveAnimationIsDone Int
+    | MovementAnimationIsDone Int

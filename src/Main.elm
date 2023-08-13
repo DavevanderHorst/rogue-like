@@ -3,15 +3,15 @@ module Main exposing (main)
 import Browser
 import Browser.Dom
 import Browser.Events exposing (onResize)
-import Constants exposing (mapSizeHeight, mapSizeWidth, moveAnimationDuration, startCenter, startSize, startZoom)
+import Constants exposing (jumpAnimationDuration, mapSizeHeight, mapSizeWidth, moveAnimationDuration, startCenter, startSize, startZoom)
 import Draggable
 import Functions.Abilities exposing (handleNextAbility)
-import Functions.Animations exposing (makeMoveAnimation)
+import Functions.Animations exposing (makeJumpAnimation, makeMoveAnimation)
 import Functions.Coordinates exposing (isSameMapCoordinate)
 import Functions.DictFunctions.RoomDict exposing (getStepsToMoveTowardsClickedCell)
 import Functions.HeroCards exposing (activateDoubleClickedCard)
-import Functions.Level exposing (resetMovementPathInTempRoomDictForLevel, setHeroInLevel, updateLevelForAbility)
-import Functions.LevelState exposing (makeLevelStateReadyForMoveAnimation, openDoorInLevelState)
+import Functions.Level exposing (resetChangedCoordinatesInTempRoomDictForLevel, setCanBeJumpedToToIsClickedForLevelUnSafe, setHeroInLevel, updateLevelForAbility)
+import Functions.LevelState exposing (makeLevelStateReadyForMovementAnimation, openDoorInLevelState)
 import Functions.Movement exposing (makeMovementPathInTempRoomDictForLevel)
 import HeroCards exposing (emptyHeroCard, startHeroCards)
 import Levels.LevelOne exposing (heroStartMapCoordinate, levelOneResult)
@@ -142,9 +142,9 @@ update msg baseModel =
                         Just formerClickedCell ->
                             case model.levelState.gameMode of
                                 CardAction ability ->
-                                    case ability of
-                                        Move movement ->
-                                            if isSameMapCoordinate formerClickedCell clickedCoordinate then
+                                    if isSameMapCoordinate formerClickedCell clickedCoordinate then
+                                        case ability of
+                                            Move movement ->
                                                 let
                                                     stepsMovedResult =
                                                         getStepsToMoveTowardsClickedCell clickedCoordinate model.levelState.level
@@ -160,13 +160,16 @@ update msg baseModel =
                                                         in
                                                         makeReadyForMoveAnimation model clickedCoordinate stepsLeft
 
-                                            else
-                                                -- other cell is clicked
-                                                handleNewlyClickedMapCoordinate model clickedCoordinate formerClickedCell
+                                            Jump _ ->
+                                                makeReadyForJumpAnimation model clickedCoordinate
 
-                                        Attack _ ->
-                                            -- TODO
-                                            ( ErrorModel "not implemented", Cmd.none )
+                                            Attack _ ->
+                                                -- TODO
+                                                ( ErrorModel "not implemented", Cmd.none )
+
+                                    else
+                                        -- other cell is clicked
+                                        handleNewlyClickedMapCoordinate model clickedCoordinate formerClickedCell
 
                                 ChooseCard ->
                                     ( ErrorModel "Choose card not possible in map is clicked", Cmd.none )
@@ -202,7 +205,7 @@ update msg baseModel =
                         Ok stateWithOpenedDoor ->
                             ( OkModel { model | levelState = stateWithOpenedDoor }, Cmd.none )
 
-                MoveAnimationIsDone stepsLeft ->
+                MovementAnimationIsDone stepsLeft ->
                     let
                         oldLevelState =
                             model.levelState
@@ -244,25 +247,38 @@ dragConfig =
 
 handleFirstClickedMapCoordinate : Model -> MapCoordinate -> ( BaseModel, Cmd Msg )
 handleFirstClickedMapCoordinate model clickedCoordinate =
-    let
-        updatedLevelResult =
-            makeMovementPathInTempRoomDictForLevel clickedCoordinate model.levelState.level
-    in
-    case updatedLevelResult of
-        Err err ->
-            ( ErrorModel err, Cmd.none )
+    case model.levelState.gameMode of
+        ChooseCard ->
+            ( ErrorModel "State is ChooseCard", Cmd.none )
 
-        Ok updatedLevel ->
-            ( OkModel <|
-                updateLevelState model
-                    (\state ->
-                        { state
-                            | formerClickedCell = Just clickedCoordinate
-                            , level = updatedLevel
-                        }
+        CardAction cardAbility ->
+            let
+                updatedLevelResult =
+                    case cardAbility of
+                        Move _ ->
+                            makeMovementPathInTempRoomDictForLevel clickedCoordinate model.levelState.level
+
+                        Jump _ ->
+                            setCanBeJumpedToToIsClickedForLevelUnSafe clickedCoordinate model.levelState.level
+
+                        Attack int ->
+                            Err "TODO"
+            in
+            case updatedLevelResult of
+                Err err ->
+                    ( ErrorModel err, Cmd.none )
+
+                Ok updatedLevel ->
+                    ( OkModel <|
+                        updateLevelState model
+                            (\state ->
+                                { state
+                                    | formerClickedCell = Just clickedCoordinate
+                                    , level = updatedLevel
+                                }
+                            )
+                    , Cmd.none
                     )
-            , Cmd.none
-            )
 
 
 handleNewlyClickedMapCoordinate : Model -> MapCoordinate -> MapCoordinate -> ( BaseModel, Cmd Msg )
@@ -276,32 +292,23 @@ handleNewlyClickedMapCoordinate model new old =
                 model.levelState.level
 
             resetLevelResult =
-                resetMovementPathInTempRoomDictForLevel currentLevel
+                resetChangedCoordinatesInTempRoomDictForLevel currentLevel
         in
         case resetLevelResult of
             Err err ->
                 ( ErrorModel err, Cmd.none )
 
             Ok resetLevel ->
-                let
-                    newLevelResult =
-                        makeMovementPathInTempRoomDictForLevel new resetLevel
-                in
-                case newLevelResult of
-                    Err err ->
-                        ( ErrorModel err, Cmd.none )
-
-                    Ok newLevel ->
-                        ( OkModel <|
-                            updateLevelState model
-                                (\state ->
-                                    { state
-                                        | formerClickedCell = Just new
-                                        , level = newLevel
-                                    }
-                                )
-                        , Cmd.none
+                handleFirstClickedMapCoordinate
+                    (updateLevelState
+                        model
+                        (\state ->
+                            { state
+                                | level = resetLevel
+                            }
                         )
+                    )
+                    new
 
 
 handleMovementAbility : Int -> Model -> ( BaseModel, Cmd Msg )
@@ -388,7 +395,7 @@ makeReadyForMoveAnimation : Model -> MapCoordinate -> Int -> ( BaseModel, Cmd Ms
 makeReadyForMoveAnimation model newHeroSpot movement =
     let
         makeReadyResult =
-            makeLevelStateReadyForMoveAnimation model.levelState
+            makeLevelStateReadyForMovementAnimation model.levelState
     in
     case makeReadyResult of
         Err err ->
@@ -410,6 +417,49 @@ makeReadyForMoveAnimation model newHeroSpot movement =
                     handleMoveAnimation { model | levelState = levelStateWithNewHeroSpot } currentHeroSpot changedCoordinates movement
 
 
+makeReadyForJumpAnimation : Model -> MapCoordinate -> ( BaseModel, Cmd Msg )
+makeReadyForJumpAnimation model newHeroSpot =
+    let
+        makeReadyResult =
+            makeLevelStateReadyForMovementAnimation model.levelState
+    in
+    case makeReadyResult of
+        Err err ->
+            ( ErrorModel err, Cmd.none )
+
+        Ok readyLevelState ->
+            let
+                currentHeroSpot =
+                    readyLevelState.heroSpot
+
+                levelStateWithNewHeroSpot =
+                    { readyLevelState | heroSpot = newHeroSpot }
+            in
+            handleJumpAnimation { model | levelState = levelStateWithNewHeroSpot } currentHeroSpot newHeroSpot
+
+
+handleJumpAnimation : Model -> MapCoordinate -> MapCoordinate -> ( BaseModel, Cmd Msg )
+handleJumpAnimation model start end =
+    let
+        makeJumpAnimationResult =
+            makeJumpAnimation start end model.levelState.level.rooms
+    in
+    case makeJumpAnimationResult of
+        Err err ->
+            ( ErrorModel err, Cmd.none )
+
+        Ok jumpAnimation ->
+            let
+                -- TODO
+                calculateLengthOfJump =
+                    3
+
+                nextCommand =
+                    Process.sleep (toFloat <| calculateLengthOfJump * jumpAnimationDuration) |> Task.perform (always (MovementAnimationIsDone 0))
+            in
+            ( OkModel { model | animation = jumpAnimation }, nextCommand )
+
+
 handleMoveAnimation : Model -> MapCoordinate -> List MapCoordinate -> Int -> ( BaseModel, Cmd Msg )
 handleMoveAnimation model heroSpot restOfPath movement =
     let
@@ -426,6 +476,6 @@ handleMoveAnimation model heroSpot restOfPath movement =
                     List.length restOfPath
 
                 nextCommand =
-                    Process.sleep (toFloat <| steps * moveAnimationDuration) |> Task.perform (always (MoveAnimationIsDone movement))
+                    Process.sleep (toFloat <| steps * moveAnimationDuration) |> Task.perform (always (MovementAnimationIsDone movement))
             in
             ( OkModel { model | animation = moveAnimation }, nextCommand )

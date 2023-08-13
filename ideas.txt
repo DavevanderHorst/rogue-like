@@ -1,0 +1,14 @@
+
+
+powerfull cards have cooldowns -> on cd pile
+after cd it comes in your used cards pile
+if your pile of available cards is empty, it will be reshuffled
+
+
+items have cards,
+item cards can have a 1 time use.
+
+
+Each round you get 4 cards, from which you can use 2. All cards go to your used cards pile
+
+switching weapons, costs a choosen card. weapon cards will be removed, new weapon cards will be put into discarded pile

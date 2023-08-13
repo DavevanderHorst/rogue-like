@@ -65,6 +65,7 @@ type CellState
     | ClickedForMovement Int
     | IsPartOfMovePath Int
     | CanBeMovedTo Int
+    | CanBeJumpedTo Int
 
 
 type FigureType

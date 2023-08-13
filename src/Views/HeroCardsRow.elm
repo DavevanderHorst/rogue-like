@@ -103,5 +103,8 @@ makeAbilityText ability =
         Move int ->
             "Move: " ++ String.fromInt int
 
+        Jump int ->
+            "Jump: " ++ String.fromInt int
+
         Attack int ->
             "Attack: " ++ String.fromInt int

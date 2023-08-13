@@ -4,12 +4,12 @@ import Functions.DictFunctions.DoorDict exposing (addDoorToDoorDictUnSafe, getDo
 import Functions.DictFunctions.RoomDict exposing (openGridCellDoorsForOpenedDoor)
 import Functions.Door exposing (getOtherMapCoordinateFromDoor)
 import Functions.Level exposing (removeHeroFromLevel)
-import Functions.Movement exposing (setCanBeMovedToForOpenedRoom)
+import Functions.Movement exposing (setDistanceForOpenedRoom)
 import Models.LevelState exposing (LevelState, MapCoordinate)
 
 
-makeLevelStateReadyForMoveAnimation : LevelState -> Result String LevelState
-makeLevelStateReadyForMoveAnimation levelState =
+makeLevelStateReadyForMovementAnimation : LevelState -> Result String LevelState
+makeLevelStateReadyForMovementAnimation levelState =
     -- Remove hero, hero will be animated
     -- We remove the temp rooms
     let
@@ -84,7 +84,7 @@ openDoorInLevelState doorNumber state =
                                             getOtherMapCoordinateFromDoor state.heroSpot.roomNumber openedDoor
 
                                         finishedTempRoomDictResult =
-                                            setCanBeMovedToForOpenedRoom newMapCoordinate state.gameMode newTempRoomDict
+                                            setDistanceForOpenedRoom newMapCoordinate state.gameMode newTempRoomDict
                                     in
                                     case finishedTempRoomDictResult of
                                         Err err ->

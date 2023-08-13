@@ -1,9 +1,9 @@
 module Functions.Level exposing (..)
 
 import Dict exposing (Dict)
-import Functions.DictFunctions.GridCellDict exposing (setGridCellFromPartOfPathToCanBeMovedTo)
+import Functions.DictFunctions.GridCellDict exposing (setGridCellFromMovableToClickedUnsafe, setGridCellFromPartOfPathToCanBeMovedTo)
 import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
-import Functions.Movement exposing (setCanBeMovedToForMoveAbility)
+import Functions.Movement exposing (setCanBeJumpedToForAbility, setCanBeMovedToForMoveAbility)
 import Functions.Room exposing (addHeroToRoomUnsafe, removeHeroFromRoomUnsafe)
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (Level, MapCoordinate, Room, RoomCoordinate)
@@ -43,8 +43,8 @@ changeRoomInLevel heroSpot level updateFunction =
             Ok { level | rooms = updatedRoomDict }
 
 
-resetMovementPathInTempRoomDictForLevel : Level -> Result String Level
-resetMovementPathInTempRoomDictForLevel level =
+resetChangedCoordinatesInTempRoomDictForLevel : Level -> Result String Level
+resetChangedCoordinatesInTempRoomDictForLevel level =
     case level.tempUpdatedRooms of
         Nothing ->
             Err "No temp rooms found in level for : resetMovementPathInTempRoomDictForLevel"
@@ -90,26 +90,73 @@ setCoordinatesToCanBeMovedToo spot roomDictResult =
                     Ok (setGridCellsForRoomInRoomDictUnSafe spot.roomNumber updatedGridCells roomDict)
 
 
+setCanBeJumpedToToIsClickedForLevelUnSafe : MapCoordinate -> Level -> Result String Level
+setCanBeJumpedToToIsClickedForLevelUnSafe spot level =
+    case level.tempUpdatedRooms of
+        Nothing ->
+            -- temp rooms should be set to make a path, cells need to be in state : CanBeMovedToo
+            Err "Temp rooms are Nothing in : setCanBeMovedToToIsClickedForLevelUnSafe"
+
+        Just tempRooms ->
+            let
+                getRoomResult =
+                    getRoomFromRoomDict spot.roomNumber tempRooms
+            in
+            case getRoomResult of
+                Err err ->
+                    Err err
+
+                Ok activeRoom ->
+                    let
+                        updatedGridCells =
+                            -- we assume that grid cell exists and is in state clicked
+                            setGridCellFromMovableToClickedUnsafe spot.roomCoordinate activeRoom.gridCells
+
+                        updatedRoomDict =
+                            setGridCellsForRoomInRoomDictUnSafe spot.roomNumber updatedGridCells tempRooms
+                    in
+                    Ok
+                        { level
+                            | tempUpdatedRooms = Just updatedRoomDict
+                            , changedMapCoordinatesForTempRooms = Just [ spot ]
+                        }
+
+
 updateLevelForAbility : CardAbility -> MapCoordinate -> Level -> Result String Level
 updateLevelForAbility ability heroSpot level =
     case ability of
         Move steps ->
-            if steps == 0 then
-                -- empty ability has zero steps
-                Err "Steps is zero, something went wrong"
+            handleMovementAbility steps heroSpot level False
 
-            else
-                let
-                    updatedRoomsResult =
-                        setCanBeMovedToForMoveAbility steps heroSpot level.rooms
-                in
-                case updatedRoomsResult of
-                    Ok updatedRoomDict ->
-                        Ok { level | tempUpdatedRooms = Just updatedRoomDict }
-
-                    Err err ->
-                        Err err
+        Jump jump ->
+            handleMovementAbility jump heroSpot level True
 
         Attack _ ->
             -- TODO
             Err "To be implemented"
+
+
+handleMovementAbility : Int -> MapCoordinate -> Level -> Bool -> Result String Level
+handleMovementAbility steps heroSpot level isJump =
+    if steps == 0 then
+        -- empty ability has zero steps
+        Err "Movement is zero, something went wrong"
+
+    else
+        let
+            movementFunction =
+                if isJump then
+                    setCanBeJumpedToForAbility
+
+                else
+                    setCanBeMovedToForMoveAbility
+
+            updatedRoomsResult =
+                movementFunction steps heroSpot level.rooms
+        in
+        case updatedRoomsResult of
+            Ok updatedRoomDict ->
+                Ok { level | tempUpdatedRooms = Just updatedRoomDict }
+
+            Err err ->
+                Err err

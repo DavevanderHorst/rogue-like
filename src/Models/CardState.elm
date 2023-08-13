@@ -16,4 +16,7 @@ type alias HeroCard =
 
 type CardAbility
     = Move Int
+      -- Move can be done in multiple steps
+    | Jump Int
+      -- Jump is one jump, when you land, and you didnt use all your movement, its gone
     | Attack Int

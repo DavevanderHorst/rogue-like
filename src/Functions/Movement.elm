@@ -1,66 +1,117 @@
 module Functions.Movement exposing
     ( makeMovementPathInTempRoomDictForLevel
+    , setCanBeJumpedToForAbility
     , setCanBeMovedToForMoveAbility
-    , setCanBeMovedToForOpenedRoom
+    , setDistanceForOpenedRoom
     )
 
 import Dict exposing (Dict)
 import Functions.Basic exposing (isEven)
 import Functions.Coordinates exposing (createMapCoordinate, createMapCoordinateAlt, getNextCoordinate, goUp, goUpLeft, isSameRoomCoordinate)
-import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, setEmptyToCanBeMovedToInGridCellDict, setGridCellFromMovableToClickedUnsafe, setGridCellFromMovableToIsPathUnSafe, trySetMovementInGridCellForGridCells)
+import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, setEmptyToCanBeJumpedToInGridCellDict, setEmptyToCanBeMovedToInGridCellDict, setGridCellFromMovableToClickedUnsafe, setGridCellFromMovableToIsPathUnSafe, trySetMovementInGridCellForGridCells)
 import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
 import Models.CardState exposing (CardAbility(..))
 import Models.LevelState exposing (CellState(..), FigureType(..), GameMode(..), GridCell, GridDirection(..), Level, MapCoordinate, Measurements, Room, RoomCoordinate, RoomDoorDetails)
 
 
-setCanBeMovedToForOpenedRoom : MapCoordinate -> GameMode -> Dict Int Room -> Result String (Dict Int Room)
-setCanBeMovedToForOpenedRoom startCoordinate gameMode roomDict =
+
+-- Newly opened room
+
+
+setDistanceForOpenedRoom : MapCoordinate -> GameMode -> Dict Int Room -> Result String (Dict Int Room)
+setDistanceForOpenedRoom startCoordinate gameMode roomDict =
     case gameMode of
         CardAction cardAbility ->
             case cardAbility of
-                Move movement ->
-                    -- movement is from heroSpot next to door in other room, so - 1
-                    if movement < 1 then
-                        Err ("Cant set movement in new room, movement = " ++ String.fromInt movement)
+                Move steps ->
+                    handleCanBeMovedToForOpenedRoom steps startCoordinate roomDict
 
-                    else
-                        let
-                            getRoomResult =
-                                getRoomFromRoomDict startCoordinate.roomNumber roomDict
-                        in
-                        case getRoomResult of
-                            Err err ->
-                                Err err
-
-                            Ok room ->
-                                -- now we need to set start spot to movement, and check if it is empty.
-                                -- if empty and there is still movement left, then we can start setting cells around
-                                let
-                                    ( setMovementInGridCellSucceeded, gridCells ) =
-                                        trySetMovementInGridCellForGridCells 1 startCoordinate.roomCoordinate room.gridCells
-                                in
-                                if setMovementInGridCellSucceeded then
-                                    let
-                                        newGridCells =
-                                            if movement > 1 then
-                                                setCanBeMovedTooForOpenedRoom movement startCoordinate.roomCoordinate gridCells
-
-                                            else
-                                                gridCells
-
-                                        newRoom =
-                                            { room | gridCells = newGridCells }
-                                    in
-                                    Ok (addRoomToRoomDictUnSafe newRoom roomDict)
-
-                                else
-                                    Ok roomDict
+                Jump distance ->
+                    handleCanBeJumpedToForOpenedRoom distance startCoordinate roomDict
 
                 Attack _ ->
                     Err "Cant set movement in new room, cardAbility = Attack"
 
         ChooseCard ->
             Err "Cant set movement in new room, game mode = ChooseCard"
+
+
+handleCanBeMovedToForOpenedRoom : Int -> MapCoordinate -> Dict Int Room -> Result String (Dict Int Room)
+handleCanBeMovedToForOpenedRoom movement startCoordinate roomDict =
+    if movement < 1 then
+        Err ("Cant set steps in new room, steps = " ++ String.fromInt movement)
+
+    else
+        let
+            getRoomResult =
+                getRoomFromRoomDict startCoordinate.roomNumber roomDict
+        in
+        case getRoomResult of
+            Err err ->
+                Err err
+
+            Ok room ->
+                -- now we need to set start spot to movement, and check if it is empty.
+                -- if empty and there is still movement left, then we can start setting cells around
+                let
+                    ( setMovementInGridCellSucceeded, gridCells ) =
+                        trySetMovementInGridCellForGridCells 1 startCoordinate.roomCoordinate room.gridCells
+                in
+                if setMovementInGridCellSucceeded then
+                    let
+                        newGridCells =
+                            if movement > 1 then
+                                setCanBeMovedToForOpenedRoom movement startCoordinate.roomCoordinate gridCells
+
+                            else
+                                gridCells
+
+                        newRoom =
+                            { room | gridCells = newGridCells }
+                    in
+                    Ok (addRoomToRoomDictUnSafe newRoom roomDict)
+
+                else
+                    -- room is blocked by something, so we cant enter
+                    Ok roomDict
+
+
+handleCanBeJumpedToForOpenedRoom : Int -> MapCoordinate -> Dict Int Room -> Result String (Dict Int Room)
+handleCanBeJumpedToForOpenedRoom distance startCoordinate roomDict =
+    if distance < 1 then
+        Err ("Cant set distance in new room, distance = " ++ String.fromInt distance)
+
+    else
+        let
+            getRoomResult =
+                getRoomFromRoomDict startCoordinate.roomNumber roomDict
+        in
+        case getRoomResult of
+            Err err ->
+                Err err
+
+            Ok room ->
+                -- now we need to set first spot.
+                -- if there is still movement left, then we can start setting cells around
+                let
+                    updatedGridCells =
+                        setEmptyToCanBeJumpedToInGridCellDict 1 startCoordinate.roomCoordinate room.gridCells
+
+                    newGridCells =
+                        if distance > 1 then
+                            setCanBeJumpedToForOpenedRoom distance startCoordinate.roomCoordinate updatedGridCells
+
+                        else
+                            updatedGridCells
+
+                    newRoom =
+                        { room | gridCells = newGridCells }
+                in
+                Ok (addRoomToRoomDictUnSafe newRoom roomDict)
+
+
+
+--CAN BE MOVED TOO, FOR ABILITY MOVE
 
 
 setCanBeMovedToForMoveAbility : Int -> MapCoordinate -> Dict Int Room -> Result String (Dict Int Room)
@@ -76,7 +127,7 @@ setCanBeMovedToForMoveAbility steps heroSpot roomDict =
         Ok room ->
             let
                 newGridCells =
-                    setCanBeMovedTooForMovement steps heroSpot.roomCoordinate room.gridCells
+                    setCanBeMovedToForAbility steps heroSpot.roomCoordinate room.gridCells
 
                 newRoomDict =
                     setGridCellsForRoomInRoomDictUnSafe heroSpot.roomNumber newGridCells roomDict
@@ -88,11 +139,11 @@ setCanBeMovedToForMoveAbility steps heroSpot roomDict =
                 Ok newRoomDict
 
             else
-                List.foldl (setCanBeMovedToForOtherRooms steps [ heroSpot.roomNumber ]) (Ok newRoomDict) otherRoomsToSetCanBeMovedToo
+                List.foldl (setCanBeMovedToForOtherRooms steps) (Ok newRoomDict) otherRoomsToSetCanBeMovedToo
 
 
-setCanBeMovedToForOtherRooms : Int -> List Int -> ( Int, MapCoordinate ) -> Result String (Dict Int Room) -> Result String (Dict Int Room)
-setCanBeMovedToForOtherRooms totalSteps doneRoomNumberList ( firstStep, mapCoordinate ) result =
+setCanBeMovedToForOtherRooms : Int -> ( Int, MapCoordinate ) -> Result String (Dict Int Room) -> Result String (Dict Int Room)
+setCanBeMovedToForOtherRooms totalSteps ( firstStep, mapCoordinate ) result =
     case result of
         Err _ ->
             result
@@ -117,7 +168,7 @@ setCanBeMovedToForOtherRooms totalSteps doneRoomNumberList ( firstStep, mapCoord
                         let
                             newGridCells =
                                 if firstStep < totalSteps then
-                                    setCanBeMovedTooForOtherRoom (firstStep + 1) totalSteps mapCoordinate.roomCoordinate gridCells
+                                    setCanBeMovedToForOtherRoom (firstStep + 1) totalSteps mapCoordinate.roomCoordinate gridCells
 
                                 else
                                     gridCells
@@ -131,60 +182,18 @@ setCanBeMovedToForOtherRooms totalSteps doneRoomNumberList ( firstStep, mapCoord
                         Ok roomDict
 
 
-checkDoorsForMovement : Int -> List RoomDoorDetails -> Dict String GridCell -> List ( Int, MapCoordinate )
-checkDoorsForMovement totalMovement roomDoors gridCells =
-    -- We check every door if its open and if it is in canBeMovedTo state and that there is movement left.
-    List.foldl (checkDoorForMovement totalMovement gridCells) [] roomDoors
-
-
-checkDoorForMovement : Int -> Dict String GridCell -> RoomDoorDetails -> List ( Int, MapCoordinate ) -> List ( Int, MapCoordinate )
-checkDoorForMovement totalMovement gridCells roomDoor result =
-    if not roomDoor.doorIsOpen then
-        result
-
-    else
-        let
-            getGridCellResult =
-                getGridCellFromGridCellDict roomDoor.roomCoordinate gridCells
-        in
-        case getGridCellResult of
-            Err _ ->
-                -- Should not be possible
-                result
-
-            Ok gridCell ->
-                case gridCell.cellState of
-                    CanBeMovedTo steps ->
-                        if totalMovement > steps then
-                            ( steps + 1, roomDoor.connectedMapCoordinate ) :: result
-
-                        else
-                            result
-
-                    FigureType figure ->
-                        case figure of
-                            Hero ->
-                                ( 1, roomDoor.connectedMapCoordinate ) :: result
-
-                            _ ->
-                                result
-
-                    _ ->
-                        result
-
-
-setCanBeMovedTooForOpenedRoom : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
-setCanBeMovedTooForOpenedRoom totalSteps heroSpot gridCells =
+setCanBeMovedToForOpenedRoom : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setCanBeMovedToForOpenedRoom totalSteps heroSpot gridCells =
     setCanBeMovedTo totalSteps heroSpot gridCells 2
 
 
-setCanBeMovedTooForOtherRoom : Int -> Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
-setCanBeMovedTooForOtherRoom startSteps totalSteps heroSpot gridCells =
+setCanBeMovedToForOtherRoom : Int -> Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setCanBeMovedToForOtherRoom startSteps totalSteps heroSpot gridCells =
     setCanBeMovedTo totalSteps heroSpot gridCells startSteps
 
 
-setCanBeMovedTooForMovement : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
-setCanBeMovedTooForMovement totalSteps heroSpot gridCells =
+setCanBeMovedToForAbility : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setCanBeMovedToForAbility totalSteps heroSpot gridCells =
     setCanBeMovedTo totalSteps heroSpot gridCells 1
 
 
@@ -194,11 +203,11 @@ setCanBeMovedTo steps heroSpot gridCells firstRoundMovement =
         startSpot =
             getGoAroundStartSpot heroSpot
     in
-    goAroundAndChangeCells steps 0 1 startSpot startSpot Right gridCells [] firstRoundMovement
+    goAroundAndSetCanBeMovedTo steps 0 1 startSpot startSpot Right gridCells [] firstRoundMovement
 
 
-goAroundAndChangeCells : Int -> Int -> Int -> RoomCoordinate -> RoomCoordinate -> GridDirection -> Dict String GridCell -> List RoomCoordinate -> Int -> Dict String GridCell
-goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot currentDirection gridCellDict notYetSetCoordinates movementForFirstRound =
+goAroundAndSetCanBeMovedTo : Int -> Int -> Int -> RoomCoordinate -> RoomCoordinate -> GridDirection -> Dict String GridCell -> List RoomCoordinate -> Int -> Dict String GridCell
+goAroundAndSetCanBeMovedTo totalRounds currentSteps roundNumber currentSpot endSpot currentDirection gridCellDict notYetSetCoordinates movementForFirstRound =
     if currentDirection == UpRight && currentSteps == roundNumber then
         if roundNumber == totalRounds then
             -- we are done
@@ -206,6 +215,8 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
                 gridCellDict
 
             else
+                -- there is a list of coordinates within movement reach that didnt have a cell wit ha movement value around.
+                -- we go over these coordinates again, to see if anything has changed.
                 handleNotYetSetCoordinates notYetSetCoordinates gridCellDict totalRounds
 
         else
@@ -214,7 +225,7 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
                 goAroundStartSpot =
                     getGoAroundStartSpot currentSpot
             in
-            goAroundAndChangeCells totalRounds 0 (roundNumber + 1) goAroundStartSpot endSpot Right gridCellDict notYetSetCoordinates movementForFirstRound
+            goAroundAndSetCanBeMovedTo totalRounds 0 (roundNumber + 1) goAroundStartSpot endSpot Right gridCellDict notYetSetCoordinates movementForFirstRound
 
     else
         let
@@ -227,7 +238,7 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
         case gridCellResult of
             Err _ ->
                 -- not existing cell number, so we continue
-                goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection gridCellDict notYetSetCoordinates movementForFirstRound
+                goAroundAndSetCanBeMovedTo totalRounds nextSteps roundNumber nextCell endSpot nextDirection gridCellDict notYetSetCoordinates movementForFirstRound
 
             Ok currentGridCell ->
                 -- cell exists so we change cell now, then continue
@@ -236,7 +247,7 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
                         updatedDict =
                             setEmptyToCanBeMovedToInGridCellDict movementForFirstRound currentGridCell.mapCoordinate.roomCoordinate gridCellDict
                     in
-                    goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection updatedDict notYetSetCoordinates movementForFirstRound
+                    goAroundAndSetCanBeMovedTo totalRounds nextSteps roundNumber nextCell endSpot nextDirection updatedDict notYetSetCoordinates movementForFirstRound
 
                 else
                     let
@@ -246,10 +257,11 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
                     case maybeStepsToMove of
                         Nothing ->
                             let
+                                -- no steps found around, we save this coordinate for later
                                 addedCoordinateToList =
                                     currentSpot :: notYetSetCoordinates
                             in
-                            goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection gridCellDict addedCoordinateToList movementForFirstRound
+                            goAroundAndSetCanBeMovedTo totalRounds nextSteps roundNumber nextCell endSpot nextDirection gridCellDict addedCoordinateToList movementForFirstRound
 
                         Just stepsToMove ->
                             let
@@ -263,7 +275,135 @@ goAroundAndChangeCells totalRounds currentSteps roundNumber currentSpot endSpot 
                                     else
                                         setEmptyToCanBeMovedToInGridCellDict thisCellSteps currentGridCell.mapCoordinate.roomCoordinate gridCellDict
                             in
-                            goAroundAndChangeCells totalRounds nextSteps roundNumber nextCell endSpot nextDirection updatedDict notYetSetCoordinates movementForFirstRound
+                            goAroundAndSetCanBeMovedTo totalRounds nextSteps roundNumber nextCell endSpot nextDirection updatedDict notYetSetCoordinates movementForFirstRound
+
+
+
+-- CAN BE JUMPED TO FOR JUMP ABILITY
+
+
+setCanBeJumpedToForAbility : Int -> MapCoordinate -> Dict Int Room -> Result String (Dict Int Room)
+setCanBeJumpedToForAbility steps heroSpot roomDict =
+    let
+        getRoomResult =
+            getRoomFromRoomDict heroSpot.roomNumber roomDict
+    in
+    case getRoomResult of
+        Err err ->
+            Err err
+
+        Ok room ->
+            let
+                newGridCells =
+                    setCanBeJumpedTo steps heroSpot.roomCoordinate room.gridCells 1
+
+                newRoomDict =
+                    setGridCellsForRoomInRoomDictUnSafe heroSpot.roomNumber newGridCells roomDict
+
+                otherRoomsToSetCanBeJumpedTo =
+                    checkDoorsForMovement steps room.roomDoors newGridCells
+            in
+            if List.isEmpty otherRoomsToSetCanBeJumpedTo then
+                Ok newRoomDict
+
+            else
+                List.foldl (setCanBeJumpedToForOtherRooms steps) (Ok newRoomDict) otherRoomsToSetCanBeJumpedTo
+
+
+setCanBeJumpedToForOtherRooms : Int -> ( Int, MapCoordinate ) -> Result String (Dict Int Room) -> Result String (Dict Int Room)
+setCanBeJumpedToForOtherRooms totalSteps ( firstStep, mapCoordinate ) result =
+    case result of
+        Err _ ->
+            result
+
+        Ok roomDict ->
+            let
+                getRoomResult =
+                    getRoomFromRoomDict mapCoordinate.roomNumber roomDict
+            in
+            case getRoomResult of
+                Err err ->
+                    Err err
+
+                Ok room ->
+                    -- now we need to set start spot to movement
+                    -- if empty and there is still movement left, then we can start setting cells around
+                    let
+                        updatedGridCells =
+                            setEmptyToCanBeJumpedToInGridCellDict firstStep mapCoordinate.roomCoordinate room.gridCells
+                    in
+                    let
+                        newGridCells =
+                            if firstStep < totalSteps then
+                                setCanBeJumpedToForOtherRoom (firstStep + 1) totalSteps mapCoordinate.roomCoordinate updatedGridCells
+
+                            else
+                                updatedGridCells
+
+                        newRoom =
+                            { room | gridCells = newGridCells }
+                    in
+                    Ok (addRoomToRoomDictUnSafe newRoom roomDict)
+
+
+setCanBeJumpedToForOpenedRoom : Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setCanBeJumpedToForOpenedRoom totalDistance startSpot gridCellDict =
+    setCanBeJumpedTo totalDistance startSpot gridCellDict 2
+
+
+setCanBeJumpedToForOtherRoom : Int -> Int -> RoomCoordinate -> Dict String GridCell -> Dict String GridCell
+setCanBeJumpedToForOtherRoom startDistance totalDistance startSpot gridCellDict =
+    setCanBeJumpedTo totalDistance startSpot gridCellDict startDistance
+
+
+setCanBeJumpedTo : Int -> RoomCoordinate -> Dict String GridCell -> Int -> Dict String GridCell
+setCanBeJumpedTo totalDistance heroSpot gridCells startValue =
+    let
+        startSpot =
+            getGoAroundStartSpot heroSpot
+    in
+    goAroundAndSetCanBeJumpedTo totalDistance 0 1 startSpot startSpot True Right gridCells startValue
+
+
+goAroundAndSetCanBeJumpedTo : Int -> Int -> Int -> RoomCoordinate -> RoomCoordinate -> Bool -> GridDirection -> Dict String GridCell -> Int -> Dict String GridCell
+goAroundAndSetCanBeJumpedTo totalRounds currentSteps roundNumber currentSpot endSpot isStartOfRound currentDirection gridCellDict roundValue =
+    if isSameRoomCoordinate currentSpot endSpot && not isStartOfRound then
+        if roundNumber == totalRounds then
+            -- we are done
+            gridCellDict
+
+        else
+            -- we need to start next round
+            let
+                goAroundStartSpot =
+                    getGoAroundStartSpot currentSpot
+            in
+            goAroundAndSetCanBeJumpedTo totalRounds 0 (roundNumber + 1) goAroundStartSpot goAroundStartSpot True Right gridCellDict (roundValue + 1)
+
+    else
+        let
+            gridCellResult =
+                getGridCellFromGridCellDict currentSpot gridCellDict
+
+            ( nextCell, nextSteps, nextDirection ) =
+                getGridCellStatsForNextRound currentDirection currentSteps roundNumber currentSpot
+        in
+        let
+            updatedDict =
+                case gridCellResult of
+                    Err _ ->
+                        -- not existing cell number
+                        gridCellDict
+
+                    Ok currentGridCell ->
+                        -- cell exists so we change cell now
+                        setEmptyToCanBeJumpedToInGridCellDict roundValue currentGridCell.mapCoordinate.roomCoordinate gridCellDict
+        in
+        goAroundAndSetCanBeJumpedTo totalRounds nextSteps roundNumber nextCell endSpot False nextDirection updatedDict roundValue
+
+
+
+-- OTHERS
 
 
 getGridCellStatsForNextRound : GridDirection -> Int -> Int -> RoomCoordinate -> ( RoomCoordinate, Int, GridDirection )
@@ -562,6 +702,62 @@ findNextCoordinateForSettingMovePath currentSpot movement gridCellDict direction
                     findNextCoordinateForSettingMovePath nextSpot movement gridCellDict nextDirection False
 
 
+checkDoorsForMovement : Int -> List RoomDoorDetails -> Dict String GridCell -> List ( Int, MapCoordinate )
+checkDoorsForMovement totalMovement roomDoors gridCells =
+    -- We check every door if its open and if it is in a movable state and that there is movement left.
+    -- If movement left, we set start coordinate with start movement
+    List.foldl (checkDoorForMovement totalMovement gridCells) [] roomDoors
+
+
+checkDoorForMovement : Int -> Dict String GridCell -> RoomDoorDetails -> List ( Int, MapCoordinate ) -> List ( Int, MapCoordinate )
+checkDoorForMovement totalMovement gridCells roomDoor result =
+    if not roomDoor.doorIsOpen then
+        result
+
+    else
+        let
+            getGridCellResult =
+                getGridCellFromGridCellDict roomDoor.roomCoordinate gridCells
+        in
+        case getGridCellResult of
+            Err _ ->
+                -- Should not be possible
+                result
+
+            Ok gridCell ->
+                case gridCell.cellState of
+                    CanBeMovedTo steps ->
+                        if totalMovement > steps then
+                            ( steps + 1, roomDoor.connectedMapCoordinate ) :: result
+
+                        else
+                            result
+
+                    CanBeJumpedTo distance ->
+                        if totalMovement > distance then
+                            ( distance + 1, roomDoor.connectedMapCoordinate ) :: result
+
+                        else
+                            result
+
+                    FigureType figure ->
+                        case figure of
+                            Hero ->
+                                ( 1, roomDoor.connectedMapCoordinate ) :: result
+
+                            _ ->
+                                result
+
+                    Empty ->
+                        result
+
+                    ClickedForMovement _ ->
+                        result
+
+                    IsPartOfMovePath _ ->
+                        result
+
+
 getMovementFromGridCell : GridCell -> Maybe Int
 getMovementFromGridCell cell =
     case cell.cellState of
@@ -571,14 +767,17 @@ getMovementFromGridCell cell =
         FigureType _ ->
             Nothing
 
-        ClickedForMovement moves ->
-            Just moves
+        ClickedForMovement steps ->
+            Just steps
 
-        CanBeMovedTo moves ->
-            Just moves
+        CanBeMovedTo steps ->
+            Just steps
 
-        IsPartOfMovePath moves ->
-            Just moves
+        IsPartOfMovePath steps ->
+            Just steps
+
+        CanBeJumpedTo distance ->
+            Just distance
 
 
 getNextDirection : GridDirection -> GridDirection
@@ -615,21 +814,7 @@ getMovementValue spot gridCellDict =
             Nothing
 
         Ok gridCell ->
-            case gridCell.cellState of
-                Empty ->
-                    Nothing
-
-                FigureType _ ->
-                    Nothing
-
-                ClickedForMovement movement ->
-                    Just movement
-
-                CanBeMovedTo movement ->
-                    Just movement
-
-                IsPartOfMovePath movement ->
-                    Just movement
+            getMovementFromGridCell gridCell
 
 
 getGoAroundStartSpot : RoomCoordinate -> RoomCoordinate

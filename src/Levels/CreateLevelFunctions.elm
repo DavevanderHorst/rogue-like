@@ -90,7 +90,7 @@ createRoom roomNumber columns rows monsters doorData level =
         Ok baseRoom ->
             let
                 newRoom =
-                    createBaseRoom roomNumber columns rows True
+                    createBaseRoom roomNumber columns rows False
 
                 newRoomMeasurements =
                     newRoom.measurements
@@ -529,6 +529,9 @@ addFigureToRoom monsterNumber figure room =
 
                 IsPartOfMovePath _ ->
                     Err "GridCell is in state : 'IsPartOfMovePath' in addFigureToRoom"
+
+                CanBeJumpedTo _ ->
+                    Err "GridCell is in state : 'CanBeJumpedTo' in addFigureToRoom"
 
 
 figureTypeToString : FigureType -> String

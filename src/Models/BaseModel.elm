@@ -4,6 +4,7 @@ import Draggable
 import Math.Vector2 exposing (Vec2)
 import Models.CardState exposing (CardState)
 import Models.LevelState exposing (GridCell, LevelState)
+import Models.Others exposing (Point)
 
 
 type BaseModel
@@ -26,7 +27,8 @@ type alias Model =
 
 type AnimationType
     = NoAnimation
-    | Walk GridCell (List GridCell)
+    | AnimationMove Point (List Point)
+    | AnimationJump Point Point Point
 
 
 type alias Size =

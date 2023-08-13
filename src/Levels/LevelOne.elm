@@ -93,7 +93,7 @@ heroFigure =
 
 heroStartSpot : RoomCoordinate
 heroStartSpot =
-    RoomCoordinate 6 1
+    RoomCoordinate 4 1
 
 
 heroStartMapCoordinate : MapCoordinate
