@@ -28,7 +28,7 @@ jumpCard : HeroCard
 jumpCard =
     { isActivated = False
     , cardNumber = 4
-    , abilities = [ Move 2, Jump 3 ]
+    , abilities = [ Move 2, Jump 6 ]
     }
 
 

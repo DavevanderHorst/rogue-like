@@ -1,7 +1,7 @@
 module Views.MapView exposing (..)
 
 import Colors exposing (blackColorString, canBeClickedColorString, closedDoorColor, isClickedColorString, isPartOfMovePathColorString, openDoorColor, whiteColorString)
-import Constants exposing (cellWidthString, horizontalGridPolygon, moveAnimationDuration)
+import Constants exposing (cellWidthString, halfJumpAnimationDuration, horizontalGridPolygon, moveAnimationDuration)
 import Dict
 import Draggable
 import Html exposing (div, text)
@@ -97,8 +97,8 @@ jumpAnimation start middle end =
         { startAt = [ P.x start.x, P.y start.y ]
         , options = []
         }
-        [ Animation.step 1000 [ P.x middle.x, P.y middle.y, P.scale 2 ]
-        , Animation.step 1000 [ P.x end.x, P.y end.y ]
+        [ Animation.step halfJumpAnimationDuration [ P.x middle.x, P.y middle.y, P.scale 2 ]
+        , Animation.step halfJumpAnimationDuration [ P.x end.x, P.y end.y ]
         ]
 
 

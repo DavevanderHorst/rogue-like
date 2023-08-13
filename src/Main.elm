@@ -455,7 +455,7 @@ handleJumpAnimation model start end =
                     3
 
                 nextCommand =
-                    Process.sleep (toFloat <| calculateLengthOfJump * jumpAnimationDuration) |> Task.perform (always (MovementAnimationIsDone 0))
+                    Process.sleep (toFloat <| jumpAnimationDuration) |> Task.perform (always (MovementAnimationIsDone 0))
             in
             ( OkModel { model | animation = jumpAnimation }, nextCommand )
 

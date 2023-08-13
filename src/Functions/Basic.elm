@@ -26,4 +26,4 @@ makePointBetweenPoints start end =
 
 calculateAverage : Float -> Float -> Float
 calculateAverage number1 number2 =
-    number1 + number2 / 2
+    (number1 + number2) / 2

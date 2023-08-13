@@ -162,4 +162,9 @@ moveAnimationDuration =
 
 jumpAnimationDuration : Int
 jumpAnimationDuration =
-    500
+    3000
+
+
+halfJumpAnimationDuration : Int
+halfJumpAnimationDuration =
+    jumpAnimationDuration // 2
