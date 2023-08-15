@@ -50,7 +50,12 @@ oneEightCellWidth =
 cellMargin : Int
 cellMargin =
     -- Needs to be divisible by 2
-    2
+    4
+
+
+doubleCellMargin : Int
+doubleCellMargin =
+    cellMargin * 2
 
 
 halfCellMargin : Int

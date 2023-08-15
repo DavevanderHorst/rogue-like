@@ -61,16 +61,20 @@ type alias RoomDoorDetails =
 
 type CellState
     = Empty
+    | Movement MovementType
     | FigureType FigureType
-    | ClickedForMovement Int
-    | IsPartOfMovePath Int
+
+
+type MovementType
+    = ClickedForMovement Int
     | CanBeMovedTo Int
+    | IsPartOfMovePath Int
     | CanBeJumpedTo Int
 
 
 type FigureType
     = Hero
-    | Monster MonsterType Int
+    | Monster MonsterType Int Bool
 
 
 type MonsterType

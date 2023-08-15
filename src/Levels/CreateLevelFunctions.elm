@@ -24,22 +24,9 @@ import Functions.DictFunctions.GridCellDict exposing (addGridCellTooGridCellDict
 import Functions.DictFunctions.Level exposing (addMonstersAndRoomToLevelSafe)
 import Functions.DictFunctions.RoomDict exposing (getRoomFromRoomDict)
 import Functions.Room exposing (setShapeForGridCellInRoom)
+import Functions.ToString exposing (figureTypeToString)
 import Levels.LevelCreationModels exposing (DoorData, DoorDirection(..), FigureCreationType(..), MapCreationFigure)
-import Models.LevelState
-    exposing
-        ( CellState(..)
-        , Door
-        , FigureType(..)
-        , GridCell
-        , Level
-        , MapCoordinate
-        , Measurements
-        , MonsterDetails
-        , MonsterType(..)
-        , Room
-        , RoomCoordinate
-        , RoomDoorDetails
-        )
+import Models.LevelState exposing (CellState(..), Door, FigureType(..), GridCell, Level, MapCoordinate, Measurements, MonsterDetails, MonsterType(..), MovementType(..), Room, RoomCoordinate, RoomDoorDetails)
 
 
 emptyLevel : Level
@@ -512,35 +499,25 @@ addFigureToRoom monsterNumber figure room =
                                     ( { gridCell | cellState = FigureType Hero }, Nothing )
 
                                 DummyFigure ->
-                                    ( { gridCell | cellState = FigureType (Monster Dummy monsterNumber) }
+                                    ( { gridCell | cellState = FigureType (Monster Dummy monsterNumber False) }
                                     , Just (MonsterDetails monsterNumber Dummy)
                                     )
                     in
                     Ok ( { room | gridCells = addGridCellTooGridCellDictUnSafe gridCellWithFigure room.gridCells }, maybeNewMonster )
 
-                ClickedForMovement _ ->
-                    Err "GridCell is in state : 'Clicked' in addFigureToRoom"
+                Movement movementType ->
+                    case movementType of
+                        ClickedForMovement _ ->
+                            Err "GridCell is in state : 'Clicked' in addFigureToRoom"
 
-                CanBeMovedTo _ ->
-                    Err "Grid cell is in state : 'CanBeMovedToo' in addFigureToRoom"
+                        CanBeMovedTo _ ->
+                            Err "Grid cell is in state : 'CanBeMovedToo' in addFigureToRoom"
+
+                        IsPartOfMovePath _ ->
+                            Err "GridCell is in state : 'IsPartOfMovePath' in addFigureToRoom"
+
+                        CanBeJumpedTo _ ->
+                            Err "GridCell is in state : 'CanBeJumpedTo' in addFigureToRoom"
 
                 FigureType figureType ->
                     Err ("There is already an figure : " ++ figureTypeToString figureType ++ " in addFigureToRoom")
-
-                IsPartOfMovePath _ ->
-                    Err "GridCell is in state : 'IsPartOfMovePath' in addFigureToRoom"
-
-                CanBeJumpedTo _ ->
-                    Err "GridCell is in state : 'CanBeJumpedTo' in addFigureToRoom"
-
-
-figureTypeToString : FigureType -> String
-figureTypeToString figure =
-    case figure of
-        Hero ->
-            "Hero"
-
-        Monster monsterType number ->
-            case monsterType of
-                Dummy ->
-                    "Dummy, with number " ++ String.fromInt number

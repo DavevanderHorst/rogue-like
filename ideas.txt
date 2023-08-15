@@ -21,6 +21,8 @@ If you pass and did not use any of free cards, you have to discard one.
 
 Pass twice in a row, means round end for player.
 
+player starts, then monster. or highest initiative starts.
+
 --
 
 Cards  come from your items, boots / pants give move cards

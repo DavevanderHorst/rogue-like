@@ -1,7 +1,7 @@
 module Views.MapView exposing (..)
 
-import Colors exposing (blackColorString, canBeClickedColorString, closedDoorColor, isClickedColorString, isPartOfMovePathColorString, openDoorColor, whiteColorString)
-import Constants exposing (cellWidthString, halfJumpAnimationDuration, horizontalGridPolygon, moveAnimationDuration)
+import Colors exposing (blackColorString, canBeAttackedColorString, canBeClickedColorString, closedDoorColor, isClickedColorString, isPartOfMovePathColorString, openDoorColor, whiteColorString)
+import Constants exposing (cellMargin, cellWidth, cellWidthString, halfCellMargin, halfJumpAnimationDuration, horizontalGridPolygon, moveAnimationDuration)
 import Dict
 import Draggable
 import Html exposing (div, text)
@@ -12,7 +12,7 @@ import Math.Vector2 as Vec2
 import Messages exposing (Msg(..))
 import Models.BaseModel exposing (AnimationType(..), Model, Size)
 import Models.CardState exposing (CardAbility(..))
-import Models.LevelState exposing (CellState(..), Door, FigureType(..), GameMode(..), GridCell, LevelState, MonsterType(..), Room)
+import Models.LevelState exposing (CellState(..), Door, FigureType(..), GameMode(..), GridCell, LevelState, MonsterType(..), MovementType(..), Room)
 import Models.Others exposing (Point)
 import Simple.Animation as Animation exposing (Animation, Step)
 import Simple.Animation.Animated as Animated
@@ -232,42 +232,63 @@ renderGridCell _ value svgList =
                 Hero ->
                     renderHeroGridCell value :: svgList
 
-                Monster monsterType _ ->
+                Monster monsterType monsterNumber canBeAttacked ->
                     case monsterType of
                         Dummy ->
                             let
-                                attributes =
-                                    SvgAttr.xlinkHref "Images/dummy.png" :: baseGridCellAttributes value
+                                ( newSvgList, imageAttributes ) =
+                                    if canBeAttacked then
+                                        let
+                                            extraRect =
+                                                let
+                                                    attributes =
+                                                        SvgAttr.fill canBeAttackedColorString :: biggerBaseGridCellAttributes value
+                                                in
+                                                Svg.rect attributes []
+
+                                            smallerAttributes =
+                                                SvgAttr.xlinkHref "Images/dummy.png" :: smallerBaseGridCellAttributes value
+                                        in
+                                        ( extraRect :: svgList, smallerAttributes )
+
+                                    else
+                                        let
+                                            attributes =
+                                                SvgAttr.xlinkHref "Images/dummy.png" :: baseGridCellAttributes value
+                                        in
+                                        ( svgList, attributes )
                             in
-                            Svg.image attributes [] :: svgList
+                            Svg.image imageAttributes [] :: newSvgList
 
-        ClickedForMovement steps ->
-            let
-                clickableRect =
-                    createClickableRect isClickedColorString value steps
-            in
-            clickableRect :: svgList
+        Movement movementType ->
+            case movementType of
+                ClickedForMovement steps ->
+                    let
+                        clickableRect =
+                            createClickableRect isClickedColorString value steps
+                    in
+                    clickableRect :: svgList
 
-        CanBeMovedTo steps ->
-            let
-                clickableRect =
-                    createClickableRect canBeClickedColorString value steps
-            in
-            clickableRect :: svgList
+                CanBeMovedTo steps ->
+                    let
+                        clickableRect =
+                            createClickableRect canBeClickedColorString value steps
+                    in
+                    clickableRect :: svgList
 
-        CanBeJumpedTo distance ->
-            let
-                clickableRect =
-                    createClickableRect canBeClickedColorString value distance
-            in
-            clickableRect :: svgList
+                CanBeJumpedTo distance ->
+                    let
+                        clickableRect =
+                            createClickableRect canBeClickedColorString value distance
+                    in
+                    clickableRect :: svgList
 
-        IsPartOfMovePath steps ->
-            let
-                clickableRect =
-                    createClickableRect isPartOfMovePathColorString value steps
-            in
-            clickableRect :: svgList
+                IsPartOfMovePath steps ->
+                    let
+                        clickableRect =
+                            createClickableRect isPartOfMovePathColorString value steps
+                    in
+                    clickableRect :: svgList
 
 
 renderHeroCell : Svg Msg
@@ -297,6 +318,36 @@ createClickableRect color cell steps =
                 :: baseGridCellAttributes cell
     in
     Svg.rect attributes [ text (String.fromInt steps) ]
+
+
+smallerBaseGridCellAttributes : GridCell -> List (Attribute msg)
+smallerBaseGridCellAttributes gridCell =
+    [ SvgAttr.clipPath gridCell.polygonShape
+    , SvgAttr.width (smallerCellWidthString 8)
+    , SvgAttr.height (smallerCellWidthString 8)
+    , svgAttrInt SvgAttr.y (gridCell.startY + 4)
+    , svgAttrInt SvgAttr.x (gridCell.startX + 4)
+    ]
+
+
+biggerBaseGridCellAttributes : GridCell -> List (Attribute msg)
+biggerBaseGridCellAttributes gridCell =
+    [ SvgAttr.clipPath gridCell.polygonShape
+    , SvgAttr.width biggerCellWidthString
+    , SvgAttr.height biggerCellWidthString
+    , svgAttrInt SvgAttr.y (gridCell.startY - halfCellMargin)
+    , svgAttrInt SvgAttr.x (gridCell.startX - halfCellMargin)
+    ]
+
+
+smallerCellWidthString : Int -> String
+smallerCellWidthString smaller =
+    String.fromInt (cellWidth - smaller) ++ "px"
+
+
+biggerCellWidthString : String
+biggerCellWidthString =
+    String.fromInt (cellWidth + cellMargin) ++ "px"
 
 
 baseGridCellAttributes : GridCell -> List (Attribute msg)

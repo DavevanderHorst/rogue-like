@@ -2,7 +2,8 @@ module Functions.DictFunctions.GridCellDict exposing (..)
 
 import Dict exposing (Dict)
 import Functions.Coordinates exposing (roomCoordinateToString)
-import Models.LevelState exposing (CellState(..), FigureType(..), GridCell, MonsterType(..), Room, RoomCoordinate)
+import Functions.ToString exposing (figureTypeToString)
+import Models.LevelState exposing (CellState(..), FigureType(..), GridCell, MonsterType(..), MovementType(..), Room, RoomCoordinate)
 
 
 getGridCellFromGridCellDict : RoomCoordinate -> Dict String GridCell -> Result String GridCell
@@ -124,17 +125,19 @@ setMovableToClicked =
                 FigureType _ ->
                     old
 
-                ClickedForMovement _ ->
-                    old
+                Movement movementType ->
+                    case movementType of
+                        ClickedForMovement _ ->
+                            old
 
-                CanBeMovedTo moves ->
-                    { old | cellState = ClickedForMovement moves }
+                        CanBeMovedTo moves ->
+                            { old | cellState = Movement (ClickedForMovement moves) }
 
-                IsPartOfMovePath _ ->
-                    old
+                        CanBeJumpedTo moves ->
+                            { old | cellState = Movement (ClickedForMovement moves) }
 
-                CanBeJumpedTo moves ->
-                    { old | cellState = ClickedForMovement moves }
+                        IsPartOfMovePath moves ->
+                            { old | cellState = Movement (ClickedForMovement moves) }
         )
 
 
@@ -150,17 +153,19 @@ setPathToIsMovable =
                 FigureType _ ->
                     old
 
-                ClickedForMovement moves ->
-                    { old | cellState = CanBeMovedTo moves }
+                Movement movementType ->
+                    case movementType of
+                        ClickedForMovement moves ->
+                            { old | cellState = Movement (CanBeMovedTo moves) }
 
-                CanBeMovedTo _ ->
-                    old
+                        CanBeMovedTo _ ->
+                            old
 
-                IsPartOfMovePath moves ->
-                    { old | cellState = CanBeMovedTo moves }
+                        IsPartOfMovePath moves ->
+                            { old | cellState = Movement (CanBeMovedTo moves) }
 
-                CanBeJumpedTo _ ->
-                    old
+                        CanBeJumpedTo _ ->
+                            old
         )
 
 
@@ -170,21 +175,12 @@ setEmptyToCanBeMovedTo moves =
         (\old ->
             case old.cellState of
                 Empty ->
-                    { old | cellState = CanBeMovedTo moves }
+                    { old | cellState = Movement (CanBeMovedTo moves) }
 
                 FigureType _ ->
                     old
 
-                ClickedForMovement _ ->
-                    old
-
-                CanBeMovedTo _ ->
-                    old
-
-                IsPartOfMovePath _ ->
-                    old
-
-                CanBeJumpedTo _ ->
+                Movement _ ->
                     old
         )
 
@@ -195,21 +191,12 @@ setEmptyToCanBeJumpedTo distance =
         (\old ->
             case old.cellState of
                 Empty ->
-                    { old | cellState = CanBeJumpedTo distance }
+                    { old | cellState = Movement (CanBeJumpedTo distance) }
 
                 FigureType _ ->
                     old
 
-                ClickedForMovement _ ->
-                    old
-
-                CanBeMovedTo _ ->
-                    old
-
-                IsPartOfMovePath _ ->
-                    old
-
-                CanBeJumpedTo _ ->
+                Movement _ ->
                     old
         )
 
@@ -225,17 +212,19 @@ setCanBeMovedToToIsPath =
                 FigureType _ ->
                     old
 
-                ClickedForMovement _ ->
-                    old
+                Movement movementType ->
+                    case movementType of
+                        ClickedForMovement _ ->
+                            old
 
-                CanBeMovedTo moves ->
-                    { old | cellState = IsPartOfMovePath moves }
+                        CanBeMovedTo moves ->
+                            { old | cellState = Movement (IsPartOfMovePath moves) }
 
-                IsPartOfMovePath _ ->
-                    old
+                        IsPartOfMovePath _ ->
+                            old
 
-                CanBeJumpedTo _ ->
-                    old
+                        CanBeJumpedTo _ ->
+                            old
         )
 
 
@@ -253,29 +242,19 @@ cellStateToString cellState =
         FigureType figureType ->
             "FigureType " ++ figureTypeToString figureType
 
-        ClickedForMovement int ->
-            "ClickedForMovement " ++ String.fromInt int
+        Movement movementType ->
+            case movementType of
+                ClickedForMovement int ->
+                    "ClickedForMovement " ++ String.fromInt int
 
-        CanBeMovedTo int ->
-            "CanBeMovedToo" ++ String.fromInt int
+                CanBeMovedTo int ->
+                    "CanBeMovedToo" ++ String.fromInt int
 
-        IsPartOfMovePath int ->
-            "IsPartOfMovePath" ++ String.fromInt int
+                IsPartOfMovePath int ->
+                    "IsPartOfMovePath" ++ String.fromInt int
 
-        CanBeJumpedTo int ->
-            "CanBeJumpedTo" ++ String.fromInt int
-
-
-figureTypeToString : FigureType -> String
-figureTypeToString figure =
-    case figure of
-        Hero ->
-            "Hero"
-
-        Monster monsterType number ->
-            case monsterType of
-                Dummy ->
-                    "Dummy, with number " ++ String.fromInt number
+                CanBeJumpedTo int ->
+                    "CanBeJumpedTo" ++ String.fromInt int
 
 
 getStepsFromGridCellForClickedCell : RoomCoordinate -> Dict String GridCell -> Result String Int
@@ -296,17 +275,19 @@ getStepsFromGridCellForClickedCell spot gridCells =
                 FigureType _ ->
                     Err (wrongStateError gridCell.cellState)
 
-                ClickedForMovement steps ->
-                    Ok steps
+                Movement movementType ->
+                    case movementType of
+                        ClickedForMovement steps ->
+                            Ok steps
 
-                CanBeMovedTo _ ->
-                    Err (wrongStateError gridCell.cellState)
+                        CanBeMovedTo _ ->
+                            Err (wrongStateError gridCell.cellState)
 
-                IsPartOfMovePath _ ->
-                    Err (wrongStateError gridCell.cellState)
+                        IsPartOfMovePath _ ->
+                            Err (wrongStateError gridCell.cellState)
 
-                CanBeJumpedTo _ ->
-                    Err (wrongStateError gridCell.cellState)
+                        CanBeJumpedTo _ ->
+                            Err (wrongStateError gridCell.cellState)
 
 
 wrongStateError : CellState -> String

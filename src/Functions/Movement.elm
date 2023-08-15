@@ -11,7 +11,7 @@ import Functions.Coordinates exposing (createMapCoordinate, createMapCoordinateA
 import Functions.DictFunctions.GridCellDict exposing (getGridCellFromGridCellDict, setEmptyToCanBeJumpedToInGridCellDict, setEmptyToCanBeMovedToInGridCellDict, setGridCellFromMovableToClickedUnsafe, setGridCellFromMovableToIsPathUnSafe, trySetMovementInGridCellForGridCells)
 import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
 import Models.CardState exposing (CardAbility(..))
-import Models.LevelState exposing (CellState(..), FigureType(..), GameMode(..), GridCell, GridDirection(..), Level, MapCoordinate, Measurements, Room, RoomCoordinate, RoomDoorDetails)
+import Models.LevelState exposing (CellState(..), FigureType(..), GameMode(..), GridCell, GridDirection(..), Level, MapCoordinate, Measurements, MovementType(..), Room, RoomCoordinate, RoomDoorDetails)
 
 
 
@@ -726,19 +726,27 @@ checkDoorForMovement totalMovement gridCells roomDoor result =
 
             Ok gridCell ->
                 case gridCell.cellState of
-                    CanBeMovedTo steps ->
-                        if totalMovement > steps then
-                            ( steps + 1, roomDoor.connectedMapCoordinate ) :: result
+                    Movement movementType ->
+                        case movementType of
+                            CanBeMovedTo steps ->
+                                if totalMovement > steps then
+                                    ( steps + 1, roomDoor.connectedMapCoordinate ) :: result
 
-                        else
-                            result
+                                else
+                                    result
 
-                    CanBeJumpedTo distance ->
-                        if totalMovement > distance then
-                            ( distance + 1, roomDoor.connectedMapCoordinate ) :: result
+                            CanBeJumpedTo distance ->
+                                if totalMovement > distance then
+                                    ( distance + 1, roomDoor.connectedMapCoordinate ) :: result
 
-                        else
-                            result
+                                else
+                                    result
+
+                            ClickedForMovement _ ->
+                                result
+
+                            IsPartOfMovePath _ ->
+                                result
 
                     FigureType figure ->
                         case figure of
@@ -751,12 +759,6 @@ checkDoorForMovement totalMovement gridCells roomDoor result =
                     Empty ->
                         result
 
-                    ClickedForMovement _ ->
-                        result
-
-                    IsPartOfMovePath _ ->
-                        result
-
 
 getMovementFromGridCell : GridCell -> Maybe Int
 getMovementFromGridCell cell =
@@ -767,17 +769,19 @@ getMovementFromGridCell cell =
         FigureType _ ->
             Nothing
 
-        ClickedForMovement steps ->
-            Just steps
+        Movement movementType ->
+            case movementType of
+                ClickedForMovement steps ->
+                    Just steps
 
-        CanBeMovedTo steps ->
-            Just steps
+                CanBeMovedTo steps ->
+                    Just steps
 
-        IsPartOfMovePath steps ->
-            Just steps
+                IsPartOfMovePath steps ->
+                    Just steps
 
-        CanBeJumpedTo distance ->
-            Just distance
+                CanBeJumpedTo distance ->
+                    Just distance
 
 
 getNextDirection : GridDirection -> GridDirection

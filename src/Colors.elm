@@ -31,6 +31,11 @@ canBeClickedColorString =
     "#FFE4C4"
 
 
+canBeAttackedColorString : String
+canBeAttackedColorString =
+    "#E49B0F"
+
+
 isPartOfMovePathColorString : String
 isPartOfMovePathColorString =
     "#ECFFDC"
