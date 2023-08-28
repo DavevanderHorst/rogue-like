@@ -1,6 +1,6 @@
 module Functions.Abilities exposing (..)
 
-import Functions.Level exposing (updateLevelForAbility)
+import Functions.Level exposing (updateLevelForCardAbility)
 import Messages exposing (Msg)
 import Models.BaseModel exposing (BaseModel(..), Model)
 import Models.LevelState exposing (GameMode(..))
@@ -32,7 +32,7 @@ handleNextAbility model =
             -- activating next ability
             let
                 updatedLevelResult =
-                    updateLevelForAbility nextAbility oldLevelState.heroSpot oldLevelState.level
+                    updateLevelForCardAbility nextAbility oldLevelState.heroSpot oldLevelState.level
             in
             case updatedLevelResult of
                 Err err ->

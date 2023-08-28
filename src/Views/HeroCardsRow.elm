@@ -7,7 +7,7 @@ import Html.Attributes as Attr
 import Html.Events exposing (onClick)
 import Messages exposing (Msg(..))
 import Models.BaseModel exposing (Model)
-import Models.CardState exposing (CardAbility(..), HeroCard)
+import Models.CardState exposing (CardAbility(..), HeroCard, MovementAbility(..))
 import Models.LevelState exposing (GameMode(..), LevelState)
 
 
@@ -100,11 +100,18 @@ makeAbilityDiv ability =
 makeAbilityText : CardAbility -> String
 makeAbilityText ability =
     case ability of
-        Move int ->
-            "Move: " ++ String.fromInt int
+        Movement movementAbility ->
+            case movementAbility of
+                Move int ->
+                    "Move: " ++ String.fromInt int
 
-        Jump int ->
-            "Jump: " ++ String.fromInt int
+                Jump int ->
+                    "Jump: " ++ String.fromInt int
 
-        Attack int ->
-            "Attack: " ++ String.fromInt int
+        Attack attackAbility ->
+            case attackAbility of
+                Models.CardState.Sword int ->
+                    "Sword attack: " ++ String.fromInt int
+
+                Models.CardState.Spear int ->
+                    "Spear attack: " ++ String.fromInt int

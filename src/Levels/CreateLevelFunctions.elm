@@ -505,7 +505,7 @@ addFigureToRoom monsterNumber figure room =
                     in
                     Ok ( { room | gridCells = addGridCellTooGridCellDictUnSafe gridCellWithFigure room.gridCells }, maybeNewMonster )
 
-                Movement movementType ->
+                CellMovement movementType ->
                     case movementType of
                         ClickedForMovement _ ->
                             Err "GridCell is in state : 'Clicked' in addFigureToRoom"

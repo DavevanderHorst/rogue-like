@@ -10,7 +10,7 @@ import Functions.Animations exposing (makeJumpAnimation, makeMoveAnimation)
 import Functions.Coordinates exposing (isSameMapCoordinate)
 import Functions.DictFunctions.RoomDict exposing (getStepsToMoveTowardsClickedCell)
 import Functions.HeroCards exposing (activateDoubleClickedCard)
-import Functions.Level exposing (resetChangedCoordinatesInTempRoomDictForLevel, setCanBeJumpedToToIsClickedForLevelUnSafe, setHeroInLevel, updateLevelForAbility)
+import Functions.Level exposing (resetChangedCoordinatesInTempRoomDictForLevel, setCanBeJumpedToToIsClickedForLevelUnSafe, setHeroInLevel, updateLevelForCardAbility, updateLevelForMovementAbility)
 import Functions.LevelState exposing (makeLevelStateReadyForMovementAnimation, openDoorInLevelState)
 import Functions.Movement exposing (makeMovementPathInTempRoomDictForLevel)
 import HeroCards exposing (emptyHeroCard, startHeroCards)
@@ -18,7 +18,7 @@ import Levels.LevelOne exposing (heroStartMapCoordinate, levelOneResult)
 import Math.Vector2 as Vector2
 import Messages exposing (Msg(..))
 import Models.BaseModel exposing (AnimationType(..), BaseModel(..), Model, Size)
-import Models.CardState exposing (CardAbility(..), CardState)
+import Models.CardState exposing (CardAbility(..), CardState, MovementAbility(..))
 import Models.LevelState exposing (GameMode(..), LevelState, MapCoordinate, Room)
 import Process
 import Task
@@ -144,24 +144,8 @@ update msg baseModel =
                                 CardAction ability ->
                                     if isSameMapCoordinate formerClickedCell clickedCoordinate then
                                         case ability of
-                                            Move movement ->
-                                                let
-                                                    stepsMovedResult =
-                                                        getStepsToMoveTowardsClickedCell clickedCoordinate model.levelState.level
-                                                in
-                                                case stepsMovedResult of
-                                                    Err err ->
-                                                        ( ErrorModel err, Cmd.none )
-
-                                                    Ok stepsMoved ->
-                                                        let
-                                                            stepsLeft =
-                                                                movement - stepsMoved
-                                                        in
-                                                        makeReadyForMoveAnimation model clickedCoordinate stepsLeft
-
-                                            Jump _ ->
-                                                makeReadyForJumpAnimation model clickedCoordinate
+                                            Movement movementAbility ->
+                                                doMovementAbility movementAbility clickedCoordinate model
 
                                             Attack _ ->
                                                 -- TODO
@@ -228,6 +212,29 @@ update msg baseModel =
                             handleMovementAbility stepsLeft updatedModel
 
 
+doMovementAbility : MovementAbility -> MapCoordinate -> Model -> ( BaseModel, Cmd Msg )
+doMovementAbility ability clickedCoordinate model =
+    case ability of
+        Move movement ->
+            let
+                stepsMovedResult =
+                    getStepsToMoveTowardsClickedCell clickedCoordinate model.levelState.level
+            in
+            case stepsMovedResult of
+                Err err ->
+                    ( ErrorModel err, Cmd.none )
+
+                Ok stepsMoved ->
+                    let
+                        stepsLeft =
+                            movement - stepsMoved
+                    in
+                    makeReadyForMoveAnimation model clickedCoordinate stepsLeft
+
+        Jump _ ->
+            makeReadyForJumpAnimation model clickedCoordinate
+
+
 handleScreenSize : Float -> Float -> Model -> ( BaseModel, Cmd Msg )
 handleScreenSize width height model =
     let
@@ -255,11 +262,13 @@ handleFirstClickedMapCoordinate model clickedCoordinate =
             let
                 updatedLevelResult =
                     case cardAbility of
-                        Move _ ->
-                            makeMovementPathInTempRoomDictForLevel clickedCoordinate model.levelState.level
+                        Movement movementAbility ->
+                            case movementAbility of
+                                Move _ ->
+                                    makeMovementPathInTempRoomDictForLevel clickedCoordinate model.levelState.level
 
-                        Jump _ ->
-                            setCanBeJumpedToToIsClickedForLevelUnSafe clickedCoordinate model.levelState.level
+                                Jump _ ->
+                                    setCanBeJumpedToToIsClickedForLevelUnSafe clickedCoordinate model.levelState.level
 
                         Attack int ->
                             Err "TODO"
@@ -323,11 +332,11 @@ handleMovementAbility stepsLeft model =
             oldLevelState =
                 model.levelState
 
-            updatedAbility =
+            updatedMovementAbility =
                 Move stepsLeft
 
             updatedLevelResult =
-                updateLevelForAbility updatedAbility oldLevelState.heroSpot oldLevelState.level
+                updateLevelForMovementAbility updatedMovementAbility oldLevelState.heroSpot oldLevelState.level
         in
         case updatedLevelResult of
             Err err ->
@@ -338,7 +347,7 @@ handleMovementAbility stepsLeft model =
                     newLevelState =
                         { oldLevelState
                             | level = updatedLevel
-                            , gameMode = CardAction updatedAbility
+                            , gameMode = CardAction (Movement updatedMovementAbility)
                         }
                 in
                 ( OkModel <|
@@ -367,7 +376,7 @@ handleTwiceClickedCard model cardNumber =
                     model.levelState
 
                 newLevelResult =
-                    updateLevelForAbility firstAbility model.levelState.heroSpot oldLevelState.level
+                    updateLevelForCardAbility firstAbility model.levelState.heroSpot oldLevelState.level
             in
             case newLevelResult of
                 Ok newLevel ->

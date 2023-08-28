@@ -5,7 +5,7 @@ import Functions.DictFunctions.GridCellDict exposing (setGridCellFromMovableToCl
 import Functions.DictFunctions.RoomDict exposing (addRoomToRoomDictUnSafe, getRoomFromRoomDict, setGridCellsForRoomInRoomDictUnSafe)
 import Functions.Movement exposing (setCanBeJumpedToForAbility, setCanBeMovedToForMoveAbility)
 import Functions.Room exposing (addHeroToRoomUnsafe, removeHeroFromRoomUnsafe)
-import Models.CardState exposing (CardAbility(..))
+import Models.CardState exposing (AttackAbility(..), CardAbility(..), MovementAbility(..))
 import Models.LevelState exposing (Level, MapCoordinate, Room, RoomCoordinate)
 
 
@@ -122,18 +122,34 @@ setCanBeJumpedToToIsClickedForLevelUnSafe spot level =
                         }
 
 
-updateLevelForAbility : CardAbility -> MapCoordinate -> Level -> Result String Level
-updateLevelForAbility ability heroSpot level =
+updateLevelForCardAbility : CardAbility -> MapCoordinate -> Level -> Result String Level
+updateLevelForCardAbility ability heroSpot level =
+    case ability of
+        Movement movementAbility ->
+            updateLevelForMovementAbility movementAbility heroSpot level
+
+        Attack attackAbility ->
+            updateLevelForAttackAbility attackAbility heroSpot level
+
+
+updateLevelForMovementAbility : MovementAbility -> MapCoordinate -> Level -> Result String Level
+updateLevelForMovementAbility ability heroSpot level =
     case ability of
         Move steps ->
             handleMovementAbility steps heroSpot level False
 
-        Jump jump ->
-            handleMovementAbility jump heroSpot level True
+        Jump distance ->
+            handleMovementAbility distance heroSpot level True
 
-        Attack _ ->
-            -- TODO
-            Err "To be implemented"
+
+updateLevelForAttackAbility : AttackAbility -> MapCoordinate -> Level -> Result String Level
+updateLevelForAttackAbility ability heroSpot level =
+    case ability of
+        Sword int ->
+            Err "TODO"
+
+        Spear int ->
+            Err "TODO"
 
 
 handleMovementAbility : Int -> MapCoordinate -> Level -> Bool -> Result String Level

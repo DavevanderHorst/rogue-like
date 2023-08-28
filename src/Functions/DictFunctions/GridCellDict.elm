@@ -125,19 +125,19 @@ setMovableToClicked =
                 FigureType _ ->
                     old
 
-                Movement movementType ->
+                CellMovement movementType ->
                     case movementType of
                         ClickedForMovement _ ->
                             old
 
                         CanBeMovedTo moves ->
-                            { old | cellState = Movement (ClickedForMovement moves) }
+                            { old | cellState = CellMovement (ClickedForMovement moves) }
 
                         CanBeJumpedTo moves ->
-                            { old | cellState = Movement (ClickedForMovement moves) }
+                            { old | cellState = CellMovement (ClickedForMovement moves) }
 
                         IsPartOfMovePath moves ->
-                            { old | cellState = Movement (ClickedForMovement moves) }
+                            { old | cellState = CellMovement (ClickedForMovement moves) }
         )
 
 
@@ -153,16 +153,16 @@ setPathToIsMovable =
                 FigureType _ ->
                     old
 
-                Movement movementType ->
+                CellMovement movementType ->
                     case movementType of
                         ClickedForMovement moves ->
-                            { old | cellState = Movement (CanBeMovedTo moves) }
+                            { old | cellState = CellMovement (CanBeMovedTo moves) }
 
                         CanBeMovedTo _ ->
                             old
 
                         IsPartOfMovePath moves ->
-                            { old | cellState = Movement (CanBeMovedTo moves) }
+                            { old | cellState = CellMovement (CanBeMovedTo moves) }
 
                         CanBeJumpedTo _ ->
                             old
@@ -175,12 +175,12 @@ setEmptyToCanBeMovedTo moves =
         (\old ->
             case old.cellState of
                 Empty ->
-                    { old | cellState = Movement (CanBeMovedTo moves) }
+                    { old | cellState = CellMovement (CanBeMovedTo moves) }
 
                 FigureType _ ->
                     old
 
-                Movement _ ->
+                CellMovement _ ->
                     old
         )
 
@@ -191,12 +191,12 @@ setEmptyToCanBeJumpedTo distance =
         (\old ->
             case old.cellState of
                 Empty ->
-                    { old | cellState = Movement (CanBeJumpedTo distance) }
+                    { old | cellState = CellMovement (CanBeJumpedTo distance) }
 
                 FigureType _ ->
                     old
 
-                Movement _ ->
+                CellMovement _ ->
                     old
         )
 
@@ -212,13 +212,13 @@ setCanBeMovedToToIsPath =
                 FigureType _ ->
                     old
 
-                Movement movementType ->
+                CellMovement movementType ->
                     case movementType of
                         ClickedForMovement _ ->
                             old
 
                         CanBeMovedTo moves ->
-                            { old | cellState = Movement (IsPartOfMovePath moves) }
+                            { old | cellState = CellMovement (IsPartOfMovePath moves) }
 
                         IsPartOfMovePath _ ->
                             old
@@ -242,7 +242,7 @@ cellStateToString cellState =
         FigureType figureType ->
             "FigureType " ++ figureTypeToString figureType
 
-        Movement movementType ->
+        CellMovement movementType ->
             case movementType of
                 ClickedForMovement int ->
                     "ClickedForMovement " ++ String.fromInt int
@@ -275,7 +275,7 @@ getStepsFromGridCellForClickedCell spot gridCells =
                 FigureType _ ->
                     Err (wrongStateError gridCell.cellState)
 
-                Movement movementType ->
+                CellMovement movementType ->
                     case movementType of
                         ClickedForMovement steps ->
                             Ok steps

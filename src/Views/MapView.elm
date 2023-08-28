@@ -11,7 +11,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Math.Vector2 as Vec2
 import Messages exposing (Msg(..))
 import Models.BaseModel exposing (AnimationType(..), Model, Size)
-import Models.CardState exposing (CardAbility(..))
+import Models.CardState exposing (CardAbility(..), MovementAbility(..))
 import Models.LevelState exposing (CellState(..), Door, FigureType(..), GameMode(..), GridCell, LevelState, MonsterType(..), MovementType(..), Room)
 import Models.Others exposing (Point)
 import Simple.Animation as Animation exposing (Animation, Step)
@@ -260,7 +260,7 @@ renderGridCell _ value svgList =
                             in
                             Svg.image imageAttributes [] :: newSvgList
 
-        Movement movementType ->
+        CellMovement movementType ->
             case movementType of
                 ClickedForMovement steps ->
                     let
@@ -410,14 +410,21 @@ makeMapText mode =
     case mode of
         CardAction ability ->
             case ability of
-                Move int ->
-                    "Move " ++ String.fromInt int
+                Movement movementAbility ->
+                    case movementAbility of
+                        Move int ->
+                            "Move " ++ String.fromInt int
 
-                Jump int ->
-                    "Jump " ++ String.fromInt int
+                        Jump int ->
+                            "Jump " ++ String.fromInt int
 
-                Attack int ->
-                    "Attack " ++ String.fromInt int
+                Attack attackAbility ->
+                    case attackAbility of
+                        Models.CardState.Sword int ->
+                            "Sword attack: " ++ String.fromInt int
+
+                        Models.CardState.Spear int ->
+                            "Spear attack: " ++ String.fromInt int
 
         ChooseCard ->
             "Pick your next card"

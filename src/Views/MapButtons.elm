@@ -8,7 +8,7 @@ import Html.Attributes as Attr
 import Html.Events exposing (onClick)
 import Messages exposing (Msg(..))
 import Models.BaseModel exposing (AnimationType(..))
-import Models.CardState exposing (CardAbility(..))
+import Models.CardState exposing (CardAbility(..), MovementAbility(..))
 import Models.LevelState exposing (GameMode(..), LevelState)
 
 
@@ -25,11 +25,13 @@ buttonsView state animation mapWidth =
                         case state.gameMode of
                             CardAction cardAbility ->
                                 case cardAbility of
-                                    Move _ ->
-                                        ( skipMovementButton, True )
+                                    Movement movementAbility ->
+                                        case movementAbility of
+                                            Move _ ->
+                                                ( skipMovementButton, True )
 
-                                    Jump _ ->
-                                        ( skipMovementButton, True )
+                                            Jump _ ->
+                                                ( skipMovementButton, True )
 
                                     Attack _ ->
                                         ( skipAttackButton, False )

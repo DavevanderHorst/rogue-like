@@ -27,3 +27,12 @@ makePointBetweenPoints start end =
 calculateAverage : Float -> Float -> Float
 calculateAverage number1 number2 =
     (number1 + number2) / 2
+
+
+addToTheBackOfTheList : a -> List a -> List a
+addToTheBackOfTheList toBeAdded list =
+    let
+        reversedList =
+            List.reverse list
+    in
+    List.reverse <| toBeAdded :: reversedList

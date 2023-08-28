@@ -1,4 +1,11 @@
 
+MUSTS :
+
+    Set start zoom and start spot for each level.
+
+
+
+IDEAS
 
 powerfull cards have cooldowns -> on cd pile
 after cd it comes in your used cards pile

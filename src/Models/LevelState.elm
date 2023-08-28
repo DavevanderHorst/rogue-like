@@ -61,7 +61,7 @@ type alias RoomDoorDetails =
 
 type CellState
     = Empty
-    | Movement MovementType
+    | CellMovement MovementType
     | FigureType FigureType
 
 
